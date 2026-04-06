@@ -1535,7 +1535,7 @@ function StudentApp({user,onLogout}){
                   <span className="topic-icon-big">{t.icon}</span>
                   <div className="topic-name">{t.nama}</div>
                   <div style={{fontSize:10,color:"var(--tx3)",marginBottom:4}}>
-                    Soal acak adaptif · Level {WAJIB_LEVEL_LABEL[Math.min(studentLevel,6)]}
+                    Soal acak adaptif · Level {WAJIB_LEVEL_LABEL[Math.min(lv.lvlNum,6)]} · +{getWajibPoinBase(poin)} poin
                   </div>
                   {done ? (
                     <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:"#0A8A55",background:"var(--gbg)",border:"1px solid var(--gbdr)",borderRadius:100,padding:"3px 9px",width:"fit-content"}}>
@@ -1543,7 +1543,7 @@ function StudentApp({user,onLogout}){
                     </div>
                   ) : (
                     <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:t.color,background:t.color+"15",border:`1px solid ${t.color}33`,borderRadius:100,padding:"3px 9px",width:"fit-content"}}>
-                      Mulai → +{WAJIB_POIN_BASE[Math.min(studentLevel,5)]} poin
+                      Mulai → +{getWajibPoinBase(poin)} poin
                     </div>
                   )}
                 </div>
