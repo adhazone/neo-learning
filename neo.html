@@ -1,0 +1,2181 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+  <meta name="theme-color" content="#1A6BFF"/>
+  <meta name="description" content="NEO Learning Platform — Bimbel Kelas 3-6"/>
+  <title>NEO — Learning Platform</title>
+  <!-- React + Babel via CDN, no install needed -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:#F5F8FF;}
+    #root{min-height:100vh;}
+    /* Loading screen */
+    #loading{position:fixed;inset:0;background:linear-gradient(145deg,#0F4FCC,#1A6BFF);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s;}
+    #loading h1{font-family:system-ui,sans-serif;font-size:72px;font-weight:900;color:white;letter-spacing:-4px;margin-bottom:8px;}
+    #loading p{color:rgba(255,255,255,.7);font-family:system-ui,sans-serif;font-size:13px;letter-spacing:3px;text-transform:uppercase;}
+    #loading .dot{width:8px;height:8px;background:white;border-radius:50%;display:inline-block;margin:20px 4px 0;animation:bounce .8s ease infinite;}
+    #loading .dot:nth-child(2){animation-delay:.15s;}
+    #loading .dot:nth-child(3){animation-delay:.3s;}
+    @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-10px)}}
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <h1>NEO</h1>
+    <p>Learning Platform</p>
+    <br/>
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+  </div>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+const { useState, useRef, useEffect, useCallback } = React;
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║         SOAL GENERATOR ENGINE — Pure JS, Zero API              ║
+// ╚══════════════════════════════════════════════════════════════════╝
+const rnd = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+
+// ── BANK MATERI: 4 Jenjang, bebas pilih tanpa kunci kelas ─────────
+const BANK = [
+  // ══ JENJANG 1: Bilangan & Operasi ══
+  {
+    id:"cacah", jenjang:1, nama:"Bilangan Cacah Besar", icon:"🔢",
+    tag:"Ribuan–Ratus Ribu", panduan:"Kls 3-4", color:"#1A6BFF",
+    desc:"Membaca, menulis, dan membandingkan bilangan besar",
+    gen:"cacah", lvl:2, poin:10,
+  },
+  {
+    id:"opcamp", jenjang:1, nama:"Operasi Campuran", icon:"🔀",
+    tag:"Kurung → Kali/Bagi → Tambah/Kurang", panduan:"Kls 4-5", color:"#0F4FCC",
+    desc:"Aturan pengerjaan operasi campuran dengan tanda kurung",
+    gen:"opcamp", lvl:2, poin:15,
+  },
+  {
+    id:"negatif", jenjang:1, nama:"Bilangan Bulat Negatif", icon:"➖",
+    tag:"Tambah & Kurang angka minus", panduan:"Kls 6", color:"#F04060",
+    desc:"Penjumlahan dan pengurangan bilangan bulat negatif",
+    gen:"negatif", lvl:2, poin:15,
+  },
+  {
+    id:"kpkfpb", jenjang:1, nama:"KPK & FPB", icon:"🔗",
+    tag:"Kelipatan, Faktor, Soal Cerita", panduan:"Kls 4-5", color:"#8B5CF6",
+    desc:"Kelipatan Persekutuan Terkecil dan Faktor Persekutuan Terbesar",
+    gen:"kpkfpb", lvl:2, poin:18,
+  },
+  // ══ JENJANG 2: Pecahan, Desimal & Persen ══
+  {
+    id:"pecdas", jenjang:2, nama:"Pecahan Dasar", icon:"½",
+    tag:"Senilai & Membandingkan", panduan:"Kls 3-4", color:"#12C07A",
+    desc:"Mengenal pecahan senilai dan membandingkan besar pecahan",
+    gen:"pecdas", lvl:2, poin:12,
+  },
+  {
+    id:"pecop", jenjang:2, nama:"Operasi Pecahan", icon:"⅔",
+    tag:"+  −  ×  ÷  penyebut beda", panduan:"Kls 4-5", color:"#059669",
+    desc:"Operasi tambah, kurang, kali, bagi pecahan berpenyebut berbeda",
+    gen:"pecop", lvl:2, poin:18,
+  },
+  {
+    id:"despersen", jenjang:2, nama:"Desimal & Persen", icon:"%",
+    tag:"Konversi pecahan ↔ desimal ↔ persen", panduan:"Kls 4-5", color:"#F5A623",
+    desc:"Mengubah bentuk pecahan, desimal, dan persen satu sama lain",
+    gen:"despersen", lvl:2, poin:15,
+  },
+  // ══ JENJANG 3: Geometri & Pengukuran ══
+  {
+    id:"kelilingluas", jenjang:3, nama:"Keliling & Luas Datar", icon:"▱",
+    tag:"Persegi, Persegi Panjang, Segitiga", panduan:"Kls 3-5", color:"#0EA5E9",
+    desc:"Menghitung keliling dan luas bangun datar",
+    gen:"kelilingluas", lvl:2, poin:15,
+  },
+  {
+    id:"lingkaran", jenjang:3, nama:"Lingkaran", icon:"⭕",
+    tag:"Keliling & Luas (π)", panduan:"Kls 5-6", color:"#06B6D4",
+    desc:"Keliling dan luas lingkaran menggunakan nilai π ≈ 3.14",
+    gen:"lingkaran", lvl:2, poin:18,
+  },
+  {
+    id:"volume", jenjang:3, nama:"Volume Bangun Ruang", icon:"📦",
+    tag:"Kubus, Balok, Tabung, Prisma", panduan:"Kls 5-6", color:"#8B5CF6",
+    desc:"Menghitung volume berbagai bangun ruang",
+    gen:"volume", lvl:2, poin:18,
+  },
+  {
+    id:"sudut", jenjang:3, nama:"Sudut & Garis", icon:"📐",
+    tag:"Mengukur & jenis-jenis sudut", panduan:"Kls 4-5", color:"#1A6BFF",
+    desc:"Sudut lancip, siku-siku, tumpul, dan cara mengukurnya",
+    gen:"sudut", lvl:2, poin:12,
+  },
+  // ══ JENJANG 4: Hubungan & Data ══
+  {
+    id:"satuan", jenjang:4, nama:"Satuan Panjang & Berat", icon:"📏",
+    tag:"Konversi: km↔m, kg↔gr", panduan:"Kls 3-5", color:"#F5A623",
+    desc:"Tangga konversi satuan panjang dan berat",
+    gen:"satuan", lvl:2, poin:12,
+  },
+  {
+    id:"jwk", jenjang:4, nama:"Jarak, Waktu & Kecepatan", icon:"🚀",
+    tag:"J = K × W, soal cerita", panduan:"Kls 5-6", color:"#F04060",
+    desc:"Hubungan jarak, kecepatan, dan waktu dalam soal cerita",
+    gen:"jwk", lvl:2, poin:18,
+  },
+  {
+    id:"rasiskal", jenjang:4, nama:"Rasio & Skala", icon:"🗺️",
+    tag:"Peta, perbandingan", panduan:"Kls 5-6", color:"#059669",
+    desc:"Menghitung perbandingan dan jarak pada peta berskala",
+    gen:"rasiskal", lvl:2, poin:18,
+  },
+  {
+    id:"statistik", jenjang:4, nama:"Statistika Dasar", icon:"📊",
+    tag:"Mean, Median, Modus", panduan:"Kls 5-6", color:"#0EA5E9",
+    desc:"Menghitung rata-rata, nilai tengah, dan nilai yang sering muncul",
+    gen:"statistik", lvl:2, poin:15,
+  },
+];
+
+const JENJANG_META = [
+  { j:1, label:"Bilangan & Operasi",          color:"#1A6BFF", bg:"#EEF4FF" },
+  { j:2, label:"Pecahan, Desimal & Persen",   color:"#12C07A", bg:"#EDFBF4" },
+  { j:3, label:"Geometri & Pengukuran",       color:"#0EA5E9", bg:"#EFF9FF" },
+  { j:4, label:"Hubungan Antar Satuan & Data",color:"#F5A623", bg:"#FFFAEB" },
+];
+
+// ── GENERATORS ────────────────────────────────────────────────────
+function genCacah() {
+  const ops = ["+", "-", "×"];
+  const op = pick(ops);
+  const a = rnd(1000, 99999);
+  const b = rnd(100, 9999);
+  let soal, ans, steps;
+  if (op === "+") { ans = a + b; steps = [`Susun vertikal: ${a} + ${b}`, `Hitung dari satuan ke puluh-ribuan`, `✅ ${a} + ${b} = **${ans}**`]; soal = `${a} + ${b} = ?`; }
+  else if (op === "-") { const [big, small] = a > b ? [a, b] : [b, a]; ans = big - small; steps = [`Susun vertikal: ${big} − ${small}`, `Kurang dari satuan, pinjam jika perlu`, `✅ ${big} − ${small} = **${ans}**`]; soal = `${big} − ${small} = ?`; }
+  else { const x = rnd(100, 9999), y = rnd(2, 9); ans = x * y; steps = [`${x} × ${y}`, `Kalikan setiap digit dari satuan`, `✅ ${x} × ${y} = **${ans}**`]; soal = `${x} × ${y} = ?`; }
+  return { soal, jawaban: ans, type:"number", steps };
+}
+
+function genOpcamp() {
+  // (a op b) op c
+  const a = rnd(2, 20), b = rnd(2, 10), c = rnd(2, 8);
+  const ops = [["×", "+"], ["×", "-"], ["÷", "+"]];
+  const [op1, op2] = pick(ops);
+  let inner, ans, soal, steps;
+  if (op1 === "×") { inner = a * b; }
+  else { const bb = b === 0 ? 1 : b; inner = Math.floor(a * bb); /* a always divisible */ }
+  if (op2 === "+") { ans = inner + c; }
+  else { ans = inner > c ? inner - c : c - inner; }
+  soal = `${a} ${op1} ${b} ${op2} ${c} = ?`;
+  steps = [
+    `Aturan: Kerjakan Kali/Bagi dulu sebelum Tambah/Kurang`,
+    `Langkah 1: ${a} ${op1} ${b} = ${inner}`,
+    `Langkah 2: ${inner} ${op2} ${c} = ${ans}`,
+    `✅ Hasil: **${ans}**`,
+  ];
+  return { soal, jawaban: ans, type:"number", steps };
+}
+
+function genNegatif() {
+  const a = rnd(-20, 20), b = rnd(-15, 15);
+  const ops = ["+", "-"];
+  const op = pick(ops);
+  let ans, steps;
+  if (op === "+") {
+    ans = a + b;
+    steps = [
+      `Garis bilangan: mulai dari ${a}`,
+      b >= 0 ? `Geser ke kanan ${b} langkah` : `Geser ke kiri ${Math.abs(b)} langkah`,
+      `✅ ${a} + (${b}) = **${ans}**`,
+    ];
+  } else {
+    ans = a - b;
+    steps = [
+      `${a} − (${b}) = ${a} + (${-b})`,
+      `Ubah tanda: kurang negatif = tambah positif`,
+      a + (-b) >= 0 ? `Geser ke kanan ${Math.abs(b)} dari ${a}` : `Geser ke kiri dari ${a}`,
+      `✅ ${a} − (${b}) = **${ans}**`,
+    ];
+  }
+  return { soal:`${a} ${op} (${b}) = ?`, jawaban:ans, type:"number", steps };
+}
+
+function genKpkfpb() {
+  const type = pick(["kpk","fpb"]);
+  const a = rnd(2, 15), b = rnd(2, 15);
+  const g = gcd(a, b);
+  const kpkVal = (a * b) / g;
+  const fpbVal = g;
+  if (type === "kpk") {
+    const steps = [
+      `Cari kelipatan ${a}: ${Array.from({length:5},(_,i)=>(i+1)*a).join(", ")}, ...`,
+      `Cari kelipatan ${b}: ${Array.from({length:5},(_,i)=>(i+1)*b).join(", ")}, ...`,
+      `Kelipatan persekutuan terkecil = ${kpkVal}`,
+      `✅ KPK(${a}, ${b}) = **${kpkVal}**`,
+    ];
+    return { soal:`KPK dari ${a} dan ${b} = ?`, jawaban:kpkVal, type:"number", steps };
+  } else {
+    const factors = n => Array.from({length:n},(_,i)=>i+1).filter(i=>n%i===0);
+    const steps = [
+      `Faktor dari ${a}: ${factors(a).join(", ")}`,
+      `Faktor dari ${b}: ${factors(b).join(", ")}`,
+      `Faktor persekutuan terbesar = ${fpbVal}`,
+      `✅ FPB(${a}, ${b}) = **${fpbVal}**`,
+    ];
+    return { soal:`FPB dari ${a} dan ${b} = ?`, jawaban:fpbVal, type:"number", steps };
+  }
+}
+
+function genPecdas() {
+  const type = pick(["senilai","banding"]);
+  if (type === "senilai") {
+    const den = pick([2,3,4,6,8]), num = rnd(1, den-1);
+    const factor = pick([2,3,4]);
+    const ansNum = num * factor, ansDen = den * factor;
+    const steps = [
+      `Pecahan senilai: kalikan pembilang dan penyebut dengan bilangan yang sama`,
+      `${num}/${den} = ${num}×${factor} / ${den}×${factor}`,
+      `✅ ${num}/${den} = **${ansNum}/${ansDen}**`,
+    ];
+    return { soal:`${num}/${den} = ?/${ansDen}`, jawaban:ansNum, type:"number", steps };
+  } else {
+    const den = pick([4,6,8,10,12]);
+    const n1 = rnd(1,den-1), n2 = rnd(1,den-1);
+    const ans = n1 > n2 ? ">" : n1 < n2 ? "<" : "=";
+    const steps = [
+      `Penyebut sama (${den}), bandingkan pembilang`,
+      `${n1} ${ans} ${n2}`,
+      `✅ ${n1}/${den} **${ans}** ${n2}/${den}`,
+    ];
+    return { soal:`${n1}/${den} ○ ${n2}/${den}  (>, <, atau =)`, jawaban:ans, type:"sign", steps };
+  }
+}
+
+function genPecop() {
+  const op = pick(["+","-","×","÷"]);
+  const d1 = pick([2,3,4,5,6]), d2 = pick([2,3,4,5,6]);
+  const n1 = rnd(1, d1-1), n2 = rnd(1, d2-1);
+  let ans, ansStr, steps, soal;
+  if (op === "+") {
+    const lcm = (d1*d2)/gcd(d1,d2);
+    const rn1 = n1*(lcm/d1), rn2 = n2*(lcm/d2);
+    const rn = rn1+rn2;
+    const g = gcd(rn, lcm);
+    ansStr = lcm/g===1 ? `${rn/g}` : `${rn/g}/${lcm/g}`;
+    steps = [
+      `Samakan penyebut: KPK(${d1},${d2}) = ${lcm}`,
+      `${n1}/${d1} = ${rn1}/${lcm},  ${n2}/${d2} = ${rn2}/${lcm}`,
+      `Jumlahkan pembilang: ${rn1} + ${rn2} = ${rn}`,
+      g>1 ? `Sederhanakan: ${rn}/${lcm} ÷ ${g} = ${ansStr}` : `Hasil sudah sederhana`,
+      `✅ **${ansStr}**`,
+    ];
+    soal = `${n1}/${d1} + ${n2}/${d2} = ?`;
+  } else if (op === "-") {
+    const lcm = (d1*d2)/gcd(d1,d2);
+    const rn1 = n1*(lcm/d1), rn2 = n2*(lcm/d2);
+    const [big,small] = rn1>=rn2?[rn1,rn2]:[rn2,rn1];
+    const [bn1,bd1] = rn1>=rn2?[n1,d1]:[n2,d2];
+    const [bn2,bd2] = rn1>=rn2?[n2,d2]:[n1,d1];
+    const rn = big-small;
+    const g = gcd(rn,lcm);
+    ansStr = rn===0 ? "0" : lcm/g===1 ? `${rn/g}` : `${rn/g}/${lcm/g}`;
+    steps = [
+      `Samakan penyebut: KPK(${bd1},${bd2}) = ${lcm}`,
+      `${bn1}/${bd1} = ${big}/${lcm},  ${bn2}/${bd2} = ${small}/${lcm}`,
+      `Kurang pembilang: ${big} − ${small} = ${rn}`,
+      g>1 ? `Sederhanakan: ${ansStr}` : `Hasil: ${ansStr}`,
+      `✅ **${ansStr}**`,
+    ];
+    soal = `${bn1}/${bd1} − ${bn2}/${bd2} = ?`;
+  } else if (op === "×") {
+    const rn = n1*n2, rd = d1*d2;
+    const g = gcd(rn,rd);
+    ansStr = rd/g===1?`${rn/g}`:`${rn/g}/${rd/g}`;
+    steps = [
+      `Kalikan pembilang: ${n1} × ${n2} = ${rn}`,
+      `Kalikan penyebut: ${d1} × ${d2} = ${rd}`,
+      g>1?`Sederhanakan: ${rn}/${rd} ÷ ${g} = ${ansStr}`:`Hasil: ${ansStr}`,
+      `✅ **${ansStr}**`,
+    ];
+    soal = `${n1}/${d1} × ${n2}/${d2} = ?`;
+  } else {
+    // ÷ = × kebalikan
+    const rn = n1*d2, rd = d1*n2;
+    const g = gcd(rn,rd);
+    ansStr = rd/g===1?`${rn/g}`:`${rn/g}/${rd/g}`;
+    steps = [
+      `Balik pecahan kedua: ${n2}/${d2} menjadi ${d2}/${n2}`,
+      `${n1}/${d1} ÷ ${n2}/${d2} = ${n1}/${d1} × ${d2}/${n2}`,
+      `= ${rn}/${rd}`,
+      g>1?`Sederhanakan: ${ansStr}`:`Hasil: ${ansStr}`,
+      `✅ **${ansStr}**`,
+    ];
+    soal = `${n1}/${d1} ÷ ${n2}/${d2} = ?`;
+  }
+  return { soal, jawaban:ansStr, type:"fraction", steps };
+}
+
+function genDespersen() {
+  const type = pick(["pec_to_des","des_to_pct","pct_to_frac"]);
+  const dens = [2,4,5,10,20,25,100];
+  const den = pick(dens);
+  const num = rnd(1, den-1);
+  const val = num/den;
+  if (type === "pec_to_des") {
+    const ans = parseFloat(val.toFixed(4));
+    return { soal:`${num}/${den} = ? (desimal)`, jawaban:ans, type:"decimal",
+      steps:[`Bagi: ${num} ÷ ${den}`,`= ${ans}`,`✅ **${ans}**`] };
+  } else if (type === "des_to_pct") {
+    const des = parseFloat(val.toFixed(2));
+    const pct = Math.round(des*100);
+    return { soal:`${des} = ? (persen)`, jawaban:pct, type:"number",
+      steps:[`Kalikan dengan 100: ${des} × 100 = ${pct}%`,`✅ **${pct}%**`] };
+  } else {
+    const pct = Math.round(val*100);
+    const g = gcd(pct,100);
+    const ansStr = 100/g===1?`${pct/g}`:`${pct/g}/${100/g}`;
+    return { soal:`${pct}% = ? (pecahan sederhana)`, jawaban:ansStr, type:"fraction",
+      steps:[`${pct}% = ${pct}/100`,`Sederhanakan: ÷ ${g} = ${ansStr}`,`✅ **${ansStr}**`] };
+  }
+}
+
+function genKelilingluas() {
+  const shape = pick(["persegi","persegipanjang","segitiga"]);
+  const type = pick(["keliling","luas"]);
+  if (shape === "persegi") {
+    const s = rnd(3,30);
+    if (type === "keliling") {
+      return { soal:`Keliling persegi dengan sisi ${s} cm = ?`, jawaban:4*s, type:"number",
+        steps:[`K = 4 × sisi`,`K = 4 × ${s} = ${4*s} cm`,`✅ **${4*s} cm**`] };
+    } else {
+      return { soal:`Luas persegi dengan sisi ${s} cm = ?`, jawaban:s*s, type:"number",
+        steps:[`L = sisi × sisi`,`L = ${s} × ${s} = ${s*s} cm²`,`✅ **${s*s} cm²**`] };
+    }
+  } else if (shape === "persegipanjang") {
+    const p = rnd(5,40), l = rnd(2,20);
+    if (type === "keliling") {
+      const ans = 2*(p+l);
+      return { soal:`Keliling persegi panjang: p=${p}cm, l=${l}cm = ?`, jawaban:ans, type:"number",
+        steps:[`K = 2 × (p + l)`,`K = 2 × (${p} + ${l}) = 2 × ${p+l} = ${ans} cm`,`✅ **${ans} cm**`] };
+    } else {
+      const ans = p*l;
+      return { soal:`Luas persegi panjang: p=${p}cm, l=${l}cm = ?`, jawaban:ans, type:"number",
+        steps:[`L = p × l`,`L = ${p} × ${l} = ${ans} cm²`,`✅ **${ans} cm²**`] };
+    }
+  } else {
+    const a = rnd(3,20), t = rnd(3,20);
+    if (type === "luas") {
+      const ans = (a*t)/2;
+      return { soal:`Luas segitiga: alas=${a}cm, tinggi=${t}cm = ?`, jawaban:ans, type:"number",
+        steps:[`L = ½ × alas × tinggi`,`L = ½ × ${a} × ${t} = ${ans} cm²`,`✅ **${ans} cm²**`] };
+    } else {
+      const b = rnd(3,20), c = rnd(3,20);
+      const ans = a+b+c;
+      return { soal:`Keliling segitiga: sisi ${a}, ${b}, ${c} cm = ?`, jawaban:ans, type:"number",
+        steps:[`K = sisi1 + sisi2 + sisi3`,`K = ${a} + ${b} + ${c} = ${ans} cm`,`✅ **${ans} cm**`] };
+    }
+  }
+}
+
+function genLingkaran() {
+  const r = rnd(3,20);
+  const type = pick(["keliling","luas"]);
+  const PI = 3.14;
+  if (type === "keliling") {
+    const ans = parseFloat((2*PI*r).toFixed(2));
+    return { soal:`Keliling lingkaran dengan jari-jari ${r} cm (π = 3.14) = ?`, jawaban:ans, type:"number",
+      steps:[`K = 2 × π × r`,`K = 2 × 3.14 × ${r}`,`K = 6.28 × ${r} = ${ans} cm`,`✅ **${ans} cm**`] };
+  } else {
+    const ans = parseFloat((PI*r*r).toFixed(2));
+    return { soal:`Luas lingkaran dengan jari-jari ${r} cm (π = 3.14) = ?`, jawaban:ans, type:"number",
+      steps:[`L = π × r²`,`L = 3.14 × ${r}²`,`L = 3.14 × ${r*r} = ${ans} cm²`,`✅ **${ans} cm²**`] };
+  }
+}
+
+function genVolume() {
+  const shape = pick(["kubus","balok","tabung"]);
+  if (shape === "kubus") {
+    const s = rnd(2,15);
+    const ans = s**3;
+    return { soal:`Volume kubus dengan sisi ${s} cm = ?`, jawaban:ans, type:"number",
+      steps:[`V = sisi³`,`V = ${s} × ${s} × ${s}`,`V = ${s*s} × ${s} = ${ans} cm³`,`✅ **${ans} cm³**`] };
+  } else if (shape === "balok") {
+    const p=rnd(3,20), l=rnd(2,15), t=rnd(2,12);
+    const ans = p*l*t;
+    return { soal:`Volume balok: p=${p}, l=${l}, t=${t} cm = ?`, jawaban:ans, type:"number",
+      steps:[`V = p × l × t`,`V = ${p} × ${l} × ${t}`,`V = ${p*l} × ${t} = ${ans} cm³`,`✅ **${ans} cm³**`] };
+  } else {
+    const r=rnd(2,10), t=rnd(3,20);
+    const ans = parseFloat((3.14*r*r*t).toFixed(2));
+    return { soal:`Volume tabung: r=${r}cm, t=${t}cm (π=3.14) = ?`, jawaban:ans, type:"number",
+      steps:[`V = π × r² × t`,`V = 3.14 × ${r}² × ${t}`,`V = 3.14 × ${r*r} × ${t} = ${ans} cm³`,`✅ **${ans} cm³**`] };
+  }
+}
+
+function genSudut() {
+  const type = pick(["jenis","komplemen","suplemen"]);
+  if (type === "jenis") {
+    const deg = pick([30,45,60,75,90,100,120,150,170]);
+    const jenis = deg < 90 ? "lancip" : deg === 90 ? "siku-siku" : "tumpul";
+    return { soal:`Sudut ${deg}° termasuk jenis sudut apa?`, jawaban:jenis, type:"text",
+      steps:[`< 90° = sudut lancip`,`= 90° = sudut siku-siku`,`> 90° = sudut tumpul`,`${deg}° → **${jenis}**`] };
+  } else if (type === "komplemen") {
+    const a = rnd(10,80);
+    const ans = 90-a;
+    return { soal:`Komplemen sudut ${a}° = ? (dua sudut berjumlah 90°)`, jawaban:ans, type:"number",
+      steps:[`Komplemen: 90° − ${a}°`,`= ${ans}°`,`✅ **${ans}°**`] };
+  } else {
+    const a = rnd(10,170);
+    const ans = 180-a;
+    return { soal:`Suplemen sudut ${a}° = ? (dua sudut berjumlah 180°)`, jawaban:ans, type:"number",
+      steps:[`Suplemen: 180° − ${a}°`,`= ${ans}°`,`✅ **${ans}°**`] };
+  }
+}
+
+function genSatuan() {
+  const type = pick(["panjang","berat"]);
+  if (type === "panjang") {
+    const units = ["km","hm","dam","m","dm","cm","mm"];
+    const i1 = rnd(0,5), i2 = i1+rnd(1,3);
+    const n = rnd(1,100);
+    const factor = Math.pow(10, i2-i1);
+    const ans = n * factor;
+    return { soal:`${n} ${units[i1]} = ? ${units[Math.min(i2,6)]}`, jawaban:ans, type:"number",
+      steps:[`Tangga satuan panjang: km→hm→dam→m→dm→cm→mm`,`Turun ${i2-i1} tangga = × ${factor}`,`${n} × ${factor} = ${ans}`,`✅ **${ans} ${units[Math.min(i2,6)]}**`] };
+  } else {
+    const units = ["ton","kw","kg","hg","dag","g"];
+    const i1 = rnd(0,4), i2 = i1+rnd(1,3);
+    const n = rnd(1,50);
+    const factor = Math.pow(10, i2-i1);
+    const ans = n * factor;
+    return { soal:`${n} ${units[i1]} = ? ${units[Math.min(i2,5)]}`, jawaban:ans, type:"number",
+      steps:[`Tangga berat: ton→kw→kg→hg→dag→g`,`Turun ${i2-i1} tangga = × ${factor}`,`${n} × ${factor} = ${ans}`,`✅ **${ans} ${units[Math.min(i2,5)]}**`] };
+  }
+}
+
+function genJwk() {
+  const type = pick(["j","k","w"]);
+  const k = rnd(30,120)*5; // kecepatan dalam km/jam
+  const w = rnd(1,8) * 0.5; // waktu dalam jam
+  const j = k * w;
+  if (type === "j") {
+    return { soal:`Kecepatan ${k} km/jam, waktu ${w} jam. Jarak = ?`, jawaban:j, type:"number",
+      steps:[`J = K × W`,`J = ${k} × ${w}`,`J = ${j} km`,`✅ **${j} km**`] };
+  } else if (type === "k") {
+    return { soal:`Jarak ${j} km, waktu ${w} jam. Kecepatan = ?`, jawaban:k, type:"number",
+      steps:[`K = J ÷ W`,`K = ${j} ÷ ${w}`,`K = ${k} km/jam`,`✅ **${k} km/jam**`] };
+  } else {
+    return { soal:`Jarak ${j} km, kecepatan ${k} km/jam. Waktu = ?`, jawaban:w, type:"decimal",
+      steps:[`W = J ÷ K`,`W = ${j} ÷ ${k}`,`W = ${w} jam`,`✅ **${w} jam**`] };
+  }
+}
+
+function genRasiskal() {
+  const type = pick(["rasio","skala"]);
+  if (type === "rasio") {
+    const a = rnd(2,20), b = rnd(2,20);
+    const g = gcd(a,b);
+    const x = rnd(2,6);
+    const bigA = a*x, bigB = b*x;
+    return { soal:`${bigA} : ${bigB} = ? : ${b}`, jawaban:a, type:"number",
+      steps:[`Sederhanakan: ${bigA}:${bigB} = ${a}:${b} (bagi ${x})`,`Jawaban: ${a}`,`✅ **${a}**`] };
+  } else {
+    const skala = pick([1000,5000,10000,50000,200000]);
+    const petaCm = rnd(2,20);
+    const realKm = (petaCm * skala) / 100000;
+    const ans = parseFloat(realKm.toFixed(2));
+    return { soal:`Skala 1:${skala.toLocaleString("id")}. Pada peta ${petaCm} cm = ? km sebenarnya`, jawaban:ans, type:"decimal",
+      steps:[`Jarak sebenarnya = jarak peta × skala`,`= ${petaCm} cm × ${skala} = ${petaCm*skala} cm`,`= ${petaCm*skala/100} m = ${ans} km`,`✅ **${ans} km**`] };
+  }
+}
+
+function genStatistik() {
+  const n = rnd(4,8);
+  const data = Array.from({length:n}, ()=>rnd(10,99));
+  const sorted = [...data].sort((a,b)=>a-b);
+  const type = pick(["mean","median","modus"]);
+  if (type === "mean") {
+    const sum = data.reduce((a,b)=>a+b,0);
+    const ans = parseFloat((sum/n).toFixed(2));
+    return { soal:`Data: ${data.join(", ")}. Mean (rata-rata) = ?`, jawaban:ans, type:"decimal",
+      steps:[`Jumlahkan: ${data.join(" + ")} = ${sum}`,`Bagi dengan banyak data: ${sum} ÷ ${n} = ${ans}`,`✅ **${ans}**`] };
+  } else if (type === "median") {
+    let ans;
+    if (n%2===1) { ans = sorted[Math.floor(n/2)]; }
+    else { ans = (sorted[n/2-1]+sorted[n/2])/2; }
+    return { soal:`Data: ${data.join(", ")}. Median (nilai tengah) = ?`, jawaban:ans, type:"decimal",
+      steps:[`Urutkan: ${sorted.join(", ")}`,n%2===1?`Ambil nilai tengah (posisi ${Math.floor(n/2)+1})`:`Rata-rata dua nilai tengah: (${sorted[n/2-1]}+${sorted[n/2]})/2`,`✅ **${ans}**`] };
+  } else {
+    const freq = {};
+    data.forEach(x => { freq[x]=(freq[x]||0)+1; });
+    const maxF = Math.max(...Object.values(freq));
+    const modus = Object.keys(freq).filter(k=>freq[k]===maxF).map(Number).sort((a,b)=>a-b);
+    const ans = modus[0];
+    return { soal:`Data: ${data.join(", ")}. Modus (nilai terbanyak) = ?`, jawaban:ans, type:"number",
+      steps:[`Hitung frekuensi: ${Object.entries(freq).map(([k,v])=>`${k}(×${v})`).join(", ")}`,`Frekuensi terbanyak: ${maxF}`,`Modus = ${modus.join(" dan ")}`,`✅ **${ans}**`] };
+  }
+}
+
+const GENERATORS = {
+  cacah:genCacah, opcamp:genOpcamp, negatif:genNegatif, kpkfpb:genKpkfpb,
+  pecdas:genPecdas, pecop:genPecop, despersen:genDespersen,
+  kelilingluas:genKelilingluas, lingkaran:genLingkaran, volume:genVolume, sudut:genSudut,
+  satuan:genSatuan, jwk:genJwk, rasiskal:genRasiskal, statistik:genStatistik,
+};
+
+function generateSoal(topic) {
+  const gen = GENERATORS[topic.gen];
+  if (!gen) return { soal:"Soal tidak tersedia", jawaban:"0", type:"number", steps:[] };
+  try { return gen(); } catch(e) { return { soal:"Soal tidak tersedia", jawaban:"0", type:"number", steps:[] }; }
+}
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║          LATIHAN WAJIB NEO — ➕ ➖ ✖️ ➗                        ║
+// ║  Adaptive level, poin = f(level siswa) + streak bonus          ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+// Rentang angka per level adaptif (naik tiap 3 streak)
+const WAJIB_RANGES = {
+  tambah:[
+    null,
+    {a:[1,9],   b:[1,9]},
+    {a:[10,49], b:[1,9]},
+    {a:[10,99], b:[10,49]},
+    {a:[100,499],b:[10,99]},
+    {a:[100,999],b:[100,499]},
+    {a:[1000,4999],b:[100,999]},
+  ],
+  kurang:[
+    null,
+    {a:[2,10],  b:[1,5]},
+    {a:[10,50], b:[1,10]},
+    {a:[20,100],b:[10,50]},
+    {a:[100,500],b:[10,100]},
+    {a:[200,999],b:[100,499]},
+    {a:[1000,5000],b:[100,999]},
+  ],
+  kali:[
+    null,
+    {a:[1,5],  b:[1,5]},
+    {a:[2,9],  b:[2,9]},
+    {a:[10,20],b:[2,9]},
+    {a:[10,50],b:[10,20]},
+    {a:[20,99],b:[10,30]},
+    {a:[50,200],b:[20,50]},
+  ],
+  bagi:[
+    null,
+    {b:[2,5],  q:[1,5]},
+    {b:[2,9],  q:[2,9]},
+    {b:[2,12], q:[5,15]},
+    {b:[10,20],q:[5,20]},
+    {b:[10,30],q:[10,30]},
+    {b:[20,50],q:[20,50]},
+  ],
+};
+
+// Poin dasar berdasarkan TIER siswa (1=Warrior…7=Mythic)
+function getWajibPoinBase(poin) {
+  const ppv = LevelSettings.data.poinPerLevel;
+  const lvlNum = poinToLevel(poin, ppv);
+  const tierIdx = TIERS.findIndex(t => lvlNum >= t.range[0] && lvlNum <= t.range[1]);
+  const bases = [8, 10, 13, 16, 20, 25, 30];
+  return bases[Math.max(0, Math.min(tierIdx, bases.length - 1))];
+}
+
+// Streak bonus thresholds
+function getStreakBonus(streak) {
+  if (streak >= 7) return 8;
+  if (streak >= 5) return 5;
+  if (streak >= 3) return 3;
+  return 0;
+}
+
+// Level label untuk display
+const WAJIB_LEVEL_LABEL = ["","Dasar","Mudah","Menengah","Sulit","Mahir","Expert"];
+const WAJIB_LEVEL_COLOR = ["","#8A9ABB","#12C07A","#1A6BFF","#F5A623","#F04060","#8B5CF6"];
+
+function generateWajib(op, adaptLvl) {
+  const lvl = Math.min(Math.max(adaptLvl, 1), 6);
+  const cfg = WAJIB_RANGES[op][lvl];
+
+  if (op === "tambah") {
+    const a = rnd(cfg.a[0], cfg.a[1]);
+    const b = rnd(cfg.b[0], cfg.b[1]);
+    const ans = a + b;
+    // reuse step builder from existing code
+    const steps = [`Susun: ${a} + ${b}`, `Hitung dari satuan ke atas`, `✅ ${a} + ${b} = **${ans}**`];
+    return { soal:`${a} + ${b} = ?`, jawaban:ans, type:"number", steps };
+  }
+  if (op === "kurang") {
+    let a = rnd(cfg.a[0], cfg.a[1]);
+    let b = rnd(cfg.b[0], Math.min(cfg.b[1], a));
+    if (b > a) [a, b] = [b, a];
+    const ans = a - b;
+    const steps = [`Susun: ${a} − ${b}`, `Kurang dari satuan, pinjam jika perlu`, `✅ ${a} − ${b} = **${ans}**`];
+    return { soal:`${a} − ${b} = ?`, jawaban:ans, type:"number", steps };
+  }
+  if (op === "kali") {
+    const a = rnd(cfg.a[0], cfg.a[1]);
+    const b = rnd(cfg.b[0], cfg.b[1]);
+    const ans = a * b;
+    const steps = a < 10 && b < 10
+      ? [`${a} × ${b} = ${ans} (tabel perkalian)`, `✅ **${ans}**`]
+      : [`Pecah: kalikan tiap digit ${b} dengan ${a}`, `✅ ${a} × ${b} = **${ans}**`];
+    return { soal:`${a} × ${b} = ?`, jawaban:ans, type:"number", steps };
+  }
+  if (op === "bagi") {
+    const b = rnd(cfg.b[0], cfg.b[1]);
+    const q = rnd(cfg.q[0], cfg.q[1]);
+    const a = b * q;
+    const steps = [`${a} ÷ ${b} = ?`, `Gunakan kebalikan: ${b} × ${q} = ${a} ✓`, `✅ **${q}**`];
+    return { soal:`${a} ÷ ${b} = ?`, jawaban:q, type:"number", steps };
+  }
+  return { soal:"Error", jawaban:0, type:"number", steps:[] };
+}
+
+// 4 kartu Latihan Wajib
+const WAJIB_TOPICS = [
+  { id:"w-tambah", op:"tambah", nama:"Penjumlahan", icon:"➕", color:"#1A6BFF" },
+  { id:"w-kurang", op:"kurang", nama:"Pengurangan", icon:"➖", color:"#F04060" },
+  { id:"w-kali",   op:"kali",   nama:"Perkalian",   icon:"✖️", color:"#12C07A" },
+  { id:"w-bagi",   op:"bagi",   nama:"Pembagian",   icon:"➗", color:"#F5A623" },
+];
+
+// Cek apakah hari ini (tanggal lokal) sudah selesai wajib
+function isTodayDone(ts) {
+  if (!ts) return false;
+  const d = new Date(ts);
+  const now = new Date();
+  return d.getDate()===now.getDate() && d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+}
+
+function checkAnswer(userAns, correct, type) {
+  const u = String(userAns).toLowerCase().trim().replace(",",".");
+  const c = String(correct).toLowerCase().trim().replace(",",".");
+  if (type === "fraction" || type === "sign" || type === "text") return u === c;
+  const uN = parseFloat(u), cN = parseFloat(c);
+  return !isNaN(uN) && !isNaN(cN) && Math.abs(uN - cN) < 0.01;
+}
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║                    SHARED STORES                               ║
+// ╚══════════════════════════════════════════════════════════════════╝
+const ActivityStore = {
+  data:{}, listeners:[],
+  update(id,act){ this.data[id]={lastSeen:Date.now(),act}; this.listeners.forEach(f=>f({...this.data})); },
+  subscribe(f){ this.listeners.push(f); return ()=>{ this.listeners=this.listeners.filter(l=>l!==f); }; },
+  snap(){ return {...this.data}; },
+};
+
+// History store — riwayat belajar per siswa
+const HistoryStore = {
+  // { [studentId]: [{topicId, topicName, correctCount, totalSoal, poin, timestamp}] }
+  data:{},
+  add(studentId, entry) {
+    if (!this.data[studentId]) this.data[studentId] = [];
+    this.data[studentId].unshift({ ...entry, timestamp: Date.now() });
+    // keep last 50 entries
+    if (this.data[studentId].length > 50) this.data[studentId] = this.data[studentId].slice(0,50);
+    this.listeners.forEach(f=>f({...this.data}));
+  },
+  get(studentId) { return this.data[studentId] || []; },
+  listeners:[],
+  subscribe(f){ this.listeners.push(f); return ()=>{ this.listeners=this.listeners.filter(l=>l!==f); }; },
+};
+
+const INACTIVE_MS = 2 * 60 * 1000;
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║              SISTEM LEVEL 1–30 + MYTHIC  (Game-style)          ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+// Tier definitions
+const TIERS = [
+  { name:"Warrior",     range:[1,5],   col:"#8A9ABB", icon:"⚔️",  bg:"#F0F4FF", desc:"Si Pemula"          },
+  { name:"Elite",       range:[6,10],  col:"#1A6BFF", icon:"🛡️",  bg:"#EEF4FF", desc:"Mulai Jago"         },
+  { name:"Master",      range:[11,15], col:"#12C07A", icon:"🏹",  bg:"#EDFBF4", desc:"Paham Rumus"        },
+  { name:"Grandmaster", range:[16,20], col:"#F5A623", icon:"👑",  bg:"#FFFAEB", desc:"Si Teliti"          },
+  { name:"Epic",        range:[21,25], col:"#8B5CF6", icon:"💎",  bg:"#F5F3FF", desc:"Si Penakluk Soal"   },
+  { name:"Legend",      range:[26,30], col:"#F04060", icon:"🔥",  bg:"#FFF0F3", desc:"Suhu Matematika"    },
+  { name:"Mythic",      range:[31,31], col:"#FF9500", icon:"⚡",  bg:"#FFF8EB", desc:"Dewa Angka"         },
+];
+
+function getTier(lvlNum) {
+  return TIERS.find(t => lvlNum >= t.range[0] && lvlNum <= t.range[1]) || TIERS[TIERS.length-1];
+}
+
+// LevelSettings store — tutor can configure poin per level threshold
+const LevelSettings = {
+  // poinPerLevel: poin needed to advance 1 level (default 100)
+  // startLevel: default starting level for new students (default 1)
+  data: { poinPerLevel: 100, startLevel: 1 },
+  listeners: [],
+  get() { return { ...this.data }; },
+  set(patch) { this.data = { ...this.data, ...patch }; this.listeners.forEach(f => f({ ...this.data })); },
+  subscribe(f) { this.listeners.push(f); return () => { this.listeners = this.listeners.filter(l => l !== f); }; },
+};
+
+// Convert poin → level number (1–31 Mythic)
+function poinToLevel(poin, poinPerLevel) {
+  const ppv = poinPerLevel || LevelSettings.data.poinPerLevel;
+  return Math.min(31, 1 + Math.floor(poin / ppv));
+}
+
+// Get full level info from poin
+function getLvl(poin) {
+  const ppv = LevelSettings.data.poinPerLevel;
+  const lvlNum = poinToLevel(poin, ppv);
+  const tier = getTier(lvlNum);
+  const isMythic = lvlNum >= 31;
+  const poinInLevel = poin % ppv;
+  const pct = isMythic ? 100 : Math.round((poinInLevel / ppv) * 100);
+  const nextLvl = isMythic ? null : lvlNum + 1;
+  const nextTier = nextLvl ? getTier(nextLvl) : null;
+  const poinToNext = isMythic ? 0 : ppv - poinInLevel;
+  return {
+    lvlNum, tier, isMythic, pct, poinToNext, nextLvl, nextTier,
+    // legacy compat
+    l: lvlNum, name: isMythic ? "Mythic" : tier.name, col: tier.col,
+    next: nextLvl ? { name: nextTier?.name, min: (lvlNum) * ppv } : null,
+  };
+}
+
+// ── BASE DATA ─────────────────────────────────────────────────────
+const TUTOR = { username:"tutor", password:"neo2024" };
+const DEFAULT_STUDENTS = [
+  {id:1,name:"Andi Pratama", username:"andi", password:"1234",poin:80,  startLevel:1},
+  {id:2,name:"Budi Santoso", username:"budi", password:"1234",poin:320, startLevel:1},
+  {id:3,name:"Citra Dewi",   username:"citra",password:"1234",poin:1050,startLevel:1},
+  {id:4,name:"Dani Kurnia",  username:"dani", password:"1234",poin:20,  startLevel:1},
+];
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function getStatusInfo(entry){
+  if(!entry)return{color:"grey",label:"Belum login",act:"—"};
+  const el=Date.now()-entry.lastSeen;
+  if(el>INACTIVE_MS)return{color:"red",label:"Tidak aktif",act:"Tidak ada aktivitas"};
+  if(entry.act==="latihan")return{color:"green",label:"Aktif",act:`Mengerjakan: ${entry.topicName||"latihan soal"} 📐`};
+  if(entry.act==="idle")return{color:"green",label:"Aktif",act:"Di halaman utama"};
+  return{color:"grey",label:"Belum login",act:"—"};
+}
+function timeAgo(ts){if(!ts)return"";const s=Math.floor((Date.now()-ts)/1000);if(s<10)return"Baru saja";if(s<60)return`${s} dtk`;if(s<3600)return`${Math.floor(s/60)} mnt`;return`${Math.floor(s/3600)} jam`;}
+function formatDate(ts){if(!ts)return"";const d=new Date(ts);return`${d.getDate()}/${d.getMonth()+1} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;}
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║                         STYLES                                 ║
+// ╚══════════════════════════════════════════════════════════════════╝
+const G = `
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap');
+:root{
+  --blue:#1A6BFF;--blue-d:#0F4FCC;--blue-l:#E8F0FF;--blue-m:#C5D8FF;
+  --sky:#EEF4FF;--wh:#FFF;--off:#F5F8FF;--bdr:#DDE6F5;
+  --tx:#0D1B3E;--tx2:#4A5A7A;--tx3:#8A9ABB;
+  --green:#12C07A;--gbg:#EDFBF4;--gbdr:#A7EDD0;
+  --red:#F04060;--rbg:#FFF0F3;--rbdr:#FFBDCA;
+  --gold:#F5A623;--purple:#8B5CF6;
+  --r:12px;--r2:18px;--r3:24px;
+  --sh:0 2px 12px rgba(26,107,255,.10);--sh-md:0 6px 28px rgba(26,107,255,.14);--sh-lg:0 16px 48px rgba(26,107,255,.18);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--tx);-webkit-font-smoothing:antialiased;}
+input,select,button,textarea{font-family:'Plus Jakarta Sans',sans-serif;}
+::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:4px;}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
+input[type=number]{-moz-appearance:textfield;}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.93)}to{opacity:1;transform:scale(1)}}
+@keyframes popIn{0%{transform:scale(.7);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+@keyframes ripple{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.4);opacity:0}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%,75%{transform:translateX(-5px)}50%{transform:translateX(5px)}}
+
+.fu{animation:fadeUp .35s ease both;}.fu1{animation:fadeUp .35s .06s ease both;}.fu2{animation:fadeUp .35s .12s ease both;}.fu3{animation:fadeUp .35s .18s ease both;}.fu4{animation:fadeUp .35s .24s ease both;}
+.sci{animation:scaleIn .28s ease both;}.pi{animation:popIn .4s cubic-bezier(.34,1.56,.64,1) both;}
+.ans-ok{animation:bounce .4s ease;}.ans-no{animation:shake .35s ease;}
+
+/* STATUS */
+.sdot{position:relative;display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;flex-shrink:0;}
+.sdot .core{width:10px;height:10px;border-radius:50%;position:relative;z-index:1;}
+.sdot .ring{position:absolute;width:10px;height:10px;border-radius:50%;top:1px;left:1px;}
+.sdot.green .core{background:#12C07A;}.sdot.green .ring{background:#12C07A;animation:ripple 1.4s ease-out infinite;}
+.sdot.red .core{background:#F04060;}.sdot.red .ring{opacity:0;}
+.sdot.grey .core{background:#C5D0E4;}.sdot.grey .ring{opacity:0;}
+.spill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 5px;border-radius:100px;font-size:11px;font-weight:700;}
+.spill.green{background:var(--gbg);border:1px solid var(--gbdr);color:#0A8A55;}
+.spill.red{background:var(--rbg);border:1px solid var(--rbdr);color:#C0162E;}
+.spill.grey{background:#F0F4FF;border:1px solid var(--bdr);color:var(--tx3);}
+
+/* LOGIN */
+.lw{min-height:100vh;display:flex;background:var(--wh);}
+.ll{flex:1;background:linear-gradient(145deg,#0F4FCC 0%,#1A6BFF 55%,#4D8FFF 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;position:relative;overflow:hidden;}
+.ll-circle{position:absolute;border-radius:50%;background:rgba(255,255,255,.06);}
+.ll-content{position:relative;z-index:1;text-align:center;}
+.neo-big{font-family:'Syne',sans-serif;font-size:80px;font-weight:800;color:white;letter-spacing:-4px;line-height:1;margin-bottom:10px;}
+.neo-sub-txt{color:rgba(255,255,255,.7);font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:600;margin-bottom:44px;}
+.lf-list{display:flex;flex-direction:column;gap:14px;text-align:left;max-width:300px;}
+.lf-item{display:flex;align-items:center;gap:12px;color:rgba(255,255,255,.85);font-size:14px;font-weight:500;}
+.lf-dot{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.lr{width:440px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 40px;}
+.lform{width:100%;}
+.logo-row{display:flex;align-items:center;gap:9px;margin-bottom:32px;}
+.logo-ico{width:36px;height:36px;background:var(--blue);border-radius:9px;display:flex;align-items:center;justify-content:center;}
+.logo-txt{font-family:'Syne',sans-serif;font-size:21px;font-weight:800;color:var(--tx);letter-spacing:-1px;}
+.lhd{font-family:'Syne',sans-serif;font-size:25px;font-weight:800;color:var(--tx);margin-bottom:5px;letter-spacing:-.5px;}
+.lsub{font-size:13px;color:var(--tx2);margin-bottom:28px;}
+.tab-row{display:flex;gap:4px;background:var(--off);border-radius:var(--r);padding:4px;margin-bottom:24px;border:1px solid var(--bdr);}
+.tab-btn{flex:1;padding:9px;background:transparent;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;color:var(--tx3);transition:all .2s;}
+.tab-btn.on{background:var(--wh);color:var(--blue);box-shadow:0 1px 4px rgba(26,107,255,.15);}
+.field{margin-bottom:15px;}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;}
+.field input,.field select{width:100%;padding:11px 13px;background:var(--off);border:1.5px solid var(--bdr);border-radius:var(--r);color:var(--tx);font-size:14px;outline:none;transition:border-color .2s;}
+.field input:focus,.field select:focus{border-color:var(--blue);background:var(--wh);}
+.login-cta{width:100%;padding:14px;background:var(--blue);color:white;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;transition:all .2s;}
+.login-cta:hover{background:var(--blue-d);box-shadow:var(--sh-md);transform:translateY(-1px);}
+.login-err{background:#FFF0F2;border:1px solid #FFCCD5;color:var(--red);padding:10px 13px;border-radius:var(--r);font-size:13px;margin-bottom:13px;font-weight:600;}
+.login-note{text-align:center;font-size:12px;color:var(--tx3);margin-top:14px;}
+@media(max-width:700px){.ll{display:none;}.lr{width:100%;padding:36px 24px;}}
+
+/* SHELL */
+.shell{min-height:100vh;display:flex;flex-direction:column;background:var(--off);}
+.topbar{height:58px;background:var(--wh);border-bottom:1px solid var(--bdr);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50;}
+.topbar-sp{flex:1;}
+.uchip{display:flex;align-items:center;gap:8px;background:var(--sky);border:1px solid var(--blue-m);border-radius:100px;padding:5px 12px 5px 5px;}
+.uchip-av{width:26px;height:26px;border-radius:50%;background:var(--blue);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;}
+.uchip-name{font-size:13px;font-weight:700;color:var(--tx);}
+.logout-btn{padding:7px 13px;background:transparent;border:1.5px solid var(--bdr);border-radius:var(--r);color:var(--tx2);font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;}
+.logout-btn:hover{border-color:var(--red);color:var(--red);}
+.page{flex:1;padding:22px 20px 100px;max-width:880px;margin:0 auto;width:100%;}
+.bot-nav{position:fixed;bottom:0;left:0;right:0;background:var(--wh);border-top:1px solid var(--bdr);display:flex;z-index:50;box-shadow:0 -4px 16px rgba(26,107,255,.06);padding-bottom:env(safe-area-inset-bottom);}
+.bot-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px 11px;border:none;background:transparent;color:var(--tx3);font-size:10px;font-weight:700;cursor:pointer;transition:color .2s;letter-spacing:.3px;text-transform:uppercase;}
+.bot-btn.on{color:var(--blue);}
+.bot-btn svg{width:20px;height:20px;}
+.nb-dot{width:4px;height:4px;background:var(--blue);border-radius:50%;margin-top:1px;}
+
+/* COMMON */
+.pg-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px;color:var(--tx);margin-bottom:4px;}
+.pg-sub{font-size:13px;color:var(--tx2);margin-bottom:22px;}
+.sec-hd{display:flex;align-items:center;gap:10px;margin-bottom:13px;}
+.sec-hd-t{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--tx);white-space:nowrap;}
+.sec-hd-line{flex:1;height:1px;background:var(--bdr);}
+.back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font-size:13px;font-weight:700;color:var(--tx2);padding:0;margin-bottom:18px;transition:color .2s;}
+.back-btn:hover{color:var(--blue);}
+.kscroll{display:flex;gap:6px;margin-bottom:15px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;}
+.kscroll::-webkit-scrollbar{height:0;}
+.kp{padding:7px 15px;border-radius:100px;border:1.5px solid var(--bdr);background:var(--wh);color:var(--tx2);font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.kp.on{background:var(--blue);border-color:var(--blue);color:white;}
+
+/* STATUS BAR */
+.sbar{position:sticky;top:58px;z-index:40;padding:7px 20px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;transition:all .3s;}
+.sbar.active{background:var(--gbg);border-bottom:1px solid var(--gbdr);color:#0A8A55;}
+.sbar.inactive{background:var(--rbg);border-bottom:1px solid var(--rbdr);color:#C0162E;}
+
+/* LEVEL BANNER */
+.lv-banner{background:linear-gradient(120deg,var(--blue) 0%,#4D8FFF 100%);border-radius:var(--r3);padding:20px 22px;color:white;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:var(--sh-lg);}
+.lv-deco{position:absolute;border-radius:50%;background:rgba(255,255,255,.07);}
+.lv-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:13px;}
+.lv-label{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:.75;margin-bottom:4px;}
+.lv-name{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;}
+.lv-poin{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1;text-align:right;}
+.lv-poin-lbl{font-size:11px;opacity:.7;text-align:right;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}
+.lv-track{height:6px;background:rgba(255,255,255,.25);border-radius:100px;}
+.lv-fill{height:100%;border-radius:100px;background:white;transition:width .8s cubic-bezier(.4,0,.2,1);}
+.lv-hint{font-size:11px;opacity:.7;margin-top:6px;}
+
+/* BANK MATERI — Pilih Apa Hari Ini */
+.jenjang-section{margin-bottom:28px;}
+.jenjang-header{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:var(--r);margin-bottom:12px;}
+.jenjang-num{font-family:'Syne',sans-serif;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;opacity:.8;}
+.jenjang-name{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;}
+.topics-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.topic-card{background:var(--wh);border:1.5px solid var(--bdr);border-radius:var(--r2);padding:16px 14px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.topic-card:hover{transform:translateY(-2px);box-shadow:var(--sh-md);}
+.topic-card.recent{border-left:3px solid var(--gold);}
+.topic-accent{position:absolute;right:-14px;top:-14px;width:54px;height:54px;border-radius:50%;opacity:.12;}
+.topic-icon-big{font-size:26px;margin-bottom:8px;display:block;}
+.topic-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:var(--tx);margin-bottom:3px;line-height:1.3;}
+.topic-tag{font-size:10px;color:var(--tx3);font-weight:600;margin-bottom:4px;}
+.panduan-badge{display:inline-block;background:var(--off);border:1px solid var(--bdr);border-radius:100px;padding:2px 7px;font-size:9px;font-weight:700;color:var(--tx3);}
+.panduan-badge.free{background:rgba(18,192,122,.08);border-color:rgba(18,192,122,.2);color:#0A8A55;}
+.topic-last{display:flex;align-items:center;gap:4px;margin-top:6px;font-size:10px;color:var(--gold);font-weight:700;}
+
+/* ARENA LATIHAN */
+.arena-wrap{display:flex;flex-direction:column;gap:14px;}
+.arena-header{background:var(--wh);border:1.5px solid var(--bdr);border-radius:var(--r2);padding:16px 18px;box-shadow:var(--sh);}
+.arena-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.arena-topic{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--tx);}
+.arena-chips{display:flex;align-items:center;gap:8px;}
+.score-chip{display:flex;align-items:center;gap:4px;background:var(--sky);border:1px solid var(--blue-m);border-radius:100px;padding:4px 12px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:var(--blue);}
+.streak-chip{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:100px;padding:4px 10px;font-size:12px;font-weight:700;color:#A0620A;}
+.prog-bar{height:5px;background:var(--bdr);border-radius:100px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--blue),#4D8FFF);transition:width .4s ease;}
+.soal-card{background:var(--wh);border:1.5px solid var(--bdr);border-radius:var(--r3);padding:26px 22px;box-shadow:var(--sh);text-align:center;}
+.soal-num-badge{display:inline-flex;align-items:center;background:var(--sky);border:1px solid var(--blue-m);border-radius:100px;padding:4px 12px;font-size:11px;font-weight:700;color:var(--blue);margin-bottom:14px;}
+.soal-text{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:var(--tx);margin:8px 0 24px;line-height:1.3;}
+.soal-hint{font-size:11px;color:var(--tx3);margin-bottom:8px;}
+.ans-input{width:100%;padding:14px;background:var(--off);border:2.5px solid var(--bdr);border-radius:var(--r);font-family:'Syne',sans-serif;font-size:24px;font-weight:800;text-align:center;color:var(--tx);outline:none;transition:all .25s;margin-bottom:10px;}
+.ans-input:focus{border-color:var(--blue);background:var(--wh);box-shadow:0 0 0 4px rgba(26,107,255,.08);}
+.ans-input.ok{border-color:var(--green)!important;background:rgba(18,192,122,.05)!important;color:var(--green);}
+.ans-input.no{border-color:var(--red)!important;background:rgba(240,64,96,.05)!important;color:var(--red);}
+.check-btn{width:100%;padding:14px;background:var(--blue);color:white;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;}
+.check-btn:hover{background:var(--blue-d);}
+.skip-btn{width:100%;padding:9px;background:transparent;border:1.5px solid var(--bdr);border-radius:var(--r);font-size:13px;font-weight:600;color:var(--tx3);cursor:pointer;margin-top:7px;transition:all .2s;}
+.fb-ok{padding:13px 16px;background:var(--gbg);border:1px solid var(--gbdr);border-radius:var(--r);display:flex;align-items:center;gap:10px;margin-top:10px;}
+.fb-no{padding:13px 16px;background:var(--rbg);border:1px solid var(--rbdr);border-radius:var(--r);margin-top:10px;}
+.fb-label{font-size:14px;font-weight:800;}
+.fb-ok-c{color:#0A8A55;}.fb-no-c{color:#C0162E;margin-bottom:8px;}
+.steps-box{background:var(--off);border:1px solid var(--bdr);border-radius:var(--r);padding:14px 16px;margin-top:10px;}
+.steps-title{font-size:11px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;}
+.step-row{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid var(--bdr);}
+.step-row:last-child{border-bottom:none;}
+.step-n{width:22px;height:22px;border-radius:6px;background:var(--blue-l);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;margin-top:1px;}
+.step-n.fin{background:var(--gbg);color:#0A8A55;}
+.step-txt{font-size:13px;color:var(--tx2);line-height:1.5;}
+.next-btn{width:100%;padding:13px;background:linear-gradient(120deg,var(--blue),#4D8FFF);color:white;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;margin-top:12px;}
+.result-screen{background:var(--wh);border:1.5px solid var(--bdr);border-radius:var(--r3);padding:30px 22px;text-align:center;box-shadow:var(--sh);}
+.result-icon{font-size:60px;margin-bottom:10px;}
+.result-score{font-family:'Syne',sans-serif;font-size:50px;font-weight:800;color:var(--blue);line-height:1;}
+.result-lbl{font-size:13px;color:var(--tx2);margin-bottom:18px;}
+.result-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:18px;}
+.rs{background:var(--sky);border:1px solid var(--blue-m);border-radius:var(--r);padding:12px;}
+.rs-val{font-family:'Syne',sans-serif;font-size:19px;font-weight:800;color:var(--blue);}
+.rs-lbl{font-size:11px;color:var(--tx3);font-weight:600;margin-top:2px;}
+.poin-chip{display:inline-block;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--gold);padding:8px 20px;border-radius:100px;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;margin-bottom:20px;}
+.result-actions{display:flex;gap:9px;}
+.btn-pri{flex:2;padding:12px;background:var(--blue);color:white;border:none;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;}
+.btn-sec{flex:1;padding:12px;background:var(--off);border:1.5px solid var(--bdr);border-radius:var(--r);color:var(--tx2);font-size:14px;font-weight:700;cursor:pointer;}
+
+/* HISTORY */
+.hist-row{background:var(--wh);border:1.5px solid var(--bdr);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:7px;}
+.hist-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:var(--off);border:1px solid var(--bdr);}
+.hist-info{flex:1;}.hist-topic{font-size:13px;font-weight:700;color:var(--tx);margin-bottom:2px;}
+.hist-meta{font-size:11px;color:var(--tx3);}
+.hist-score{text-align:right;}.hist-poin{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--blue);}
+.hist-acc{font-size:11px;color:var(--tx3);}
+
+/* TUTOR */
+.monitor-banner{background:var(--wh);border:1.5px solid var(--bdr);border-radius:var(--r2);margin-bottom:20px;overflow:hidden;box-shadow:var(--sh);}
+.monitor-hd{padding:14px 18px;background:linear-gradient(120deg,#EEF4FF,#F5F8FF);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;}
+.monitor-hd-t{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--tx);flex:1;}
+.live-badge{display:flex;align-items:center;gap:5px;background:var(--gbg);border:1px solid var(--gbdr);border-radius:100px;padding:4px 10px;font-size:11px;font-weight:800;color:#0A8A55;text-transform:uppercase;}
+.live-blink{animation:blink 1s ease infinite;}
+.monitor-grid{display:grid;grid-template-columns:repeat(2,1fr);}
+.mc{padding:13px 16px;border-right:1px solid var(--bdr);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:11px;transition:background .3s;}
+.mc:nth-child(even){border-right:none;}.mc.active-bg{background:rgba(18,192,122,.04);}.mc.inactive-bg{background:rgba(240,64,96,.03);}
+.mc-av{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;flex-shrink:0;}
+.mc-av.green{background:var(--gbg);color:#0A8A55;border:1.5px solid var(--gbdr);}.mc-av.red{background:var(--rbg);color:#C0162E;border:1.5px solid var(--rbdr);}.mc-av.grey{background:var(--off);color:var(--tx3);border:1.5px solid var(--bdr);}
+.mc-info{flex:1;min-width:0;}.mc-name{font-size:12px;font-weight:700;color:var(--tx);margin-bottom:3px;}
+.mc-act{font-size:11px;font-weight:600;}.mc-act.green{color:#0A8A55;}.mc-act.red{color:#C0162E;}.mc-act.grey{color:var(--tx3);}
+.mc-time{font-size:10px;color:var(--tx3);margin-top:1px;}
+.sum-row{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bdr);background:var(--sky);}
+.sum-item{flex:1;text-align:center;}.sum-num{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;}.sum-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--tx3);margin-top:1px;}
+.t-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:20px;}
+.t-stat{background:var(--wh);border:1.5px solid var(--bdr);border-radius:var(--r2);padding:17px 15px;box-shadow:var(--sh);}
+.t-stat-num{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--blue);margin-bottom:2px;}
+.t-stat-label{font-size:12px;color:var(--tx2);font-weight:600;}
+.stu-list{display:flex;flex-direction:column;gap:7px;}
+.stu-row{background:var(--wh);border:1.5px solid var(--bdr);border-radius:var(--r);padding:13px 15px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:all .2s;}
+.stu-row:hover{border-color:var(--blue);box-shadow:var(--sh);}
+.stu-row.ab{border-color:var(--gbdr);}.stu-row.ib{border-color:var(--rbdr);}
+.stu-av{width:40px;height:40px;border-radius:10px;background:var(--blue-l);color:var(--blue);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:14px;font-weight:800;flex-shrink:0;}
+.stu-info{flex:1;}.stu-name-row{font-weight:700;font-size:14px;color:var(--tx);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.stu-meta{font-size:11px;color:var(--tx3);margin-top:2px;}.stu-poin{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:var(--blue);}
+.kelas-badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:100px;background:var(--blue-l);color:var(--blue);}
+
+/* STUDENT DETAIL TUTOR */
+.stu-detail-card{background:var(--wh);border:1.5px solid var(--bdr);border-radius:var(--r2);padding:20px;margin-bottom:14px;box-shadow:var(--sh);}
+.hist-day-label{font-size:11px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;padding:8px 0 6px;}
+.hist-empty{text-align:center;padding:30px;color:var(--tx3);font-size:13px;}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(13,27,62,.45);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;backdrop-filter:blur(6px);}
+.modal-box{background:var(--wh);border-radius:var(--r3);padding:28px 24px;width:100%;max-width:440px;box-shadow:var(--sh-lg);max-height:90vh;overflow-y:auto;animation:scaleIn .25s ease;}
+.modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--tx);margin-bottom:20px;}
+.modal-acts{display:flex;gap:8px;margin-top:18px;}
+.m-cancel{flex:1;padding:12px;background:var(--off);border:1.5px solid var(--bdr);border-radius:var(--r);color:var(--tx2);font-weight:700;font-size:14px;cursor:pointer;}
+.m-ok{flex:2;padding:12px;background:var(--blue);color:white;border:none;border-radius:var(--r);font-weight:700;font-size:14px;cursor:pointer;}
+.fab{position:fixed;bottom:70px;right:17px;width:50px;height:50px;border-radius:13px;background:var(--blue);color:white;border:none;cursor:pointer;font-size:23px;display:flex;align-items:center;justify-content:center;z-index:40;box-shadow:var(--sh-lg);transition:all .2s;}
+.fab:hover{background:var(--blue-d);transform:translateY(-2px);}
+
+/* LEADERBOARD */
+.lb-row{background:var(--wh);border:1.5px solid var(--bdr);border-radius:var(--r);padding:12px 15px;display:flex;align-items:center;gap:12px;margin-bottom:7px;}
+.lb-rank{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;width:28px;text-align:center;flex-shrink:0;}
+.lb-info{flex:1;}.lb-name{font-weight:700;font-size:13px;color:var(--tx);}
+.lb-sub{font-size:11px;color:var(--tx3);margin-top:1px;}
+.lb-poin{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--blue);}
+`;
+
+// ═══════════════════════════════════════════════════════════════
+// ICONS
+// ═══════════════════════════════════════════════════════════════
+const IcoHome  =()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+const IcoGrid  =()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>;
+const IcoUser  =()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+const IcoUsers =()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>;
+const IcoChart =()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
+const IcoChevL =()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>;
+const IcoChevR =()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>;
+const IcoPlus  =()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+const IcoHistory=()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>;
+
+const NeoLogo=()=><span style={{fontFamily:"'Syne',sans-serif",fontSize:20,fontWeight:800,color:"var(--blue)",letterSpacing:-1}}>NEO</span>;
+function StatusDot({color}){return <div className={`sdot ${color}`}><div className="ring"/><div className="core"/></div>;}
+
+// ═══════════════════════════════════════════════════════════════
+// ACTIVITY HOOK
+// ═══════════════════════════════════════════════════════════════
+function useActivityReporter(userId){
+  const ref=useRef(null);
+  const report=useCallback((act,topicName)=>{
+    if(!userId)return;
+    ActivityStore.update(userId,act,topicName);
+    ActivityStore.data[userId].topicName=topicName||ActivityStore.data[userId]?.topicName;
+    clearTimeout(ref.current);
+    ref.current=setTimeout(()=>ActivityStore.update(userId,"idle"),30000);
+  },[userId]);
+  useEffect(()=>{
+    if(!userId)return;
+    report("idle");
+    const hb=setInterval(()=>{const d=ActivityStore.data[userId];if(d)ActivityStore.update(userId,d.act);},20000);
+    return()=>{clearInterval(hb);clearTimeout(ref.current);};
+  },[userId,report]);
+  return report;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ARENA WAJIB — ➕ ➖ ✖️ ➗  (wajib 1x/hari, poin adaptif)
+// ═══════════════════════════════════════════════════════════════
+function ArenaWajib({ op, studentPoin, onExit, onFinish, reportActivity }) {
+  const TOTAL = 10;
+  const topic = WAJIB_TOPICS.find(t => t.op === op);
+  const lv = getLvl(studentPoin);
+  // adaptLvl for soal difficulty: map tier (1-7) to soal level (1-6)
+  const tierIdx = TIERS.findIndex(t => lv.lvlNum >= t.range[0] && lv.lvlNum <= t.range[1]);
+  const baseSoalLvl = Math.min(6, Math.max(1, tierIdx + 1));
+
+  const [adaptLvl, setAdaptLvl] = useState(baseSoalLvl);
+  const [soal, setSoal] = useState(() => generateWajib(op, baseSoalLvl));
+  const [ans, setAns] = useState("");
+  const [st, setSt] = useState(null);
+  const [num, setNum] = useState(1);
+  const [correct, setCorrect] = useState(0);
+  const [wrong, setWrong] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [maxStreak, setMaxStreak] = useState(0);
+  const [done, setDone] = useState(false);
+  const [totalPoin, setTotalPoin] = useState(0);
+  const [lvlUpMsg, setLvlUpMsg] = useState(null);
+  const inp = useRef();
+
+  useEffect(() => { reportActivity("latihan", topic.nama + " (Wajib)"); }, []);
+  useEffect(() => { if (st === null && inp.current) inp.current.focus(); }, [st, soal]);
+
+  const check = () => {
+    if (!ans.trim() || st !== null) return;
+    reportActivity("latihan", topic.nama + " (Wajib)");
+    const ok = checkAnswer(ans, soal.jawaban, soal.type);
+    setSt(ok ? "ok" : "no");
+    if (ok) {
+      const newStreak = streak + 1;
+      const newMax = Math.max(maxStreak, newStreak);
+      const newAdaptLvl = Math.min(6, baseSoalLvl + Math.floor(newStreak / 3));
+      if (newAdaptLvl > adaptLvl) {
+        setAdaptLvl(newAdaptLvl);
+        setLvlUpMsg(`🔥 Level soal naik! → ${WAJIB_LEVEL_LABEL[newAdaptLvl]}`);
+        setTimeout(() => setLvlUpMsg(null), 2000);
+      }
+      const basePoin = getWajibPoinBase(studentPoin);
+      const bonus = getStreakBonus(newStreak);
+      const pt = basePoin + bonus;
+      setStreak(newStreak);
+      setMaxStreak(newMax);
+      setCorrect(c => c + 1);
+      setTotalPoin(p => p + pt);
+    } else {
+      setStreak(0);
+      setWrong(w => w + 1);
+    }
+  };
+
+  const next = () => {
+    if (num >= TOTAL) { setDone(true); return; }
+    setSoal(generateWajib(op, adaptLvl));
+    setAns(""); setSt(null); setNum(n => n + 1);
+  };
+  const skip = () => {
+    setStreak(0); setWrong(w => w + 1);
+    setSoal(generateWajib(op, adaptLvl));
+    setAns(""); setSt(null); setNum(n => n + 1);
+  };
+
+  const rTxt = txt => txt.split(/\*\*(.*?)\*\*/).map((t, i) => i % 2 === 1 ? <strong key={i}>{t}</strong> : t);
+
+  if (done) {
+    const pct = Math.round((correct / TOTAL) * 100);
+    const emoji = pct >= 90 ? "🏆" : pct >= 70 ? "🎉" : pct >= 50 ? "👍" : "💪";
+    return (
+      <div className="result-screen sci">
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginBottom:8 }}>
+          <span style={{ fontSize:24 }}>{topic.icon}</span>
+          <span style={{ fontFamily:"'Syne',sans-serif", fontSize:16, fontWeight:800, color:"var(--tx)" }}>{topic.nama} — Wajib Selesai!</span>
+        </div>
+        <div className="result-icon pi">{emoji}</div>
+        <div className="result-score">{correct}/{TOTAL}</div>
+        <div className="result-lbl">soal benar · {pct}%</div>
+        <div className="result-stats">
+          <div className="rs"><div className="rs-val" style={{color:"var(--green)"}}>{correct}</div><div className="rs-lbl">Benar</div></div>
+          <div className="rs"><div className="rs-val" style={{color:"var(--red)"}}>{wrong}</div><div className="rs-lbl">Salah</div></div>
+          <div className="rs"><div className="rs-val" style={{color:"var(--gold)"}}>{maxStreak}🔥</div><div className="rs-lbl">Streak</div></div>
+        </div>
+        <div className="poin-chip">+{totalPoin} poin</div>
+        <div style={{ fontSize:12, color:"var(--green)", fontWeight:700, marginBottom:18, background:"var(--gbg)", border:"1px solid var(--gbdr)", borderRadius:"var(--r)", padding:"10px 14px" }}>
+          ✅ Latihan wajib hari ini selesai! Bank Materi terbuka.
+        </div>
+        <div className="result-actions">
+          <button className="btn-sec" onClick={() => { onFinish(totalPoin, correct, TOTAL, op); onExit(); }}>← Kembali</button>
+          <button className="btn-pri" onClick={() => { setSoal(generateWajib(op, baseSoalLvl)); setAns(""); setSt(null); setNum(1); setCorrect(0); setWrong(0); setStreak(0); setMaxStreak(0); setTotalPoin(0); setAdaptLvl(baseSoalLvl); setDone(false); onFinish(totalPoin, correct, TOTAL, op); }}>Ulangi 🔄</button>
+        </div>
+      </div>
+    );
+  }
+
+  const basePoin = getWajibPoinBase(studentPoin);
+  const bonus = getStreakBonus(streak);
+
+  return (
+    <div className="arena-wrap fu">
+      {/* Level up notification */}
+      {lvlUpMsg && (
+        <div style={{ background:"linear-gradient(120deg,#F5A623,#FF6B35)", color:"white", borderRadius:"var(--r)", padding:"10px 16px", textAlign:"center", fontWeight:800, fontSize:14, animation:"fadeUp .3s ease" }}>
+          {lvlUpMsg}
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="arena-header">
+        <div className="arena-meta">
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+              <span style={{ fontFamily:"'Syne',sans-serif", fontSize:15, fontWeight:800, color:"var(--tx)" }}>{topic.icon} {topic.nama}</span>
+              <span style={{ fontSize:10, fontWeight:800, padding:"2px 8px", borderRadius:100, background: WAJIB_LEVEL_COLOR[adaptLvl]+"22", color:WAJIB_LEVEL_COLOR[adaptLvl], border:`1px solid ${WAJIB_LEVEL_COLOR[adaptLvl]}44` }}>
+                {WAJIB_LEVEL_LABEL[adaptLvl]}
+              </span>
+            </div>
+            <div style={{ fontSize:11, color:"var(--gold)", marginTop:3, fontWeight:600 }}>
+              ⚡ Wajib NEO · {basePoin + bonus} poin/soal{bonus > 0 ? ` (+${bonus} streak bonus)` : ""}
+            </div>
+          </div>
+          <div className="arena-chips">
+            {streak >= 3 && <div className="streak-chip">🔥 {streak}x</div>}
+            <div className="score-chip">✓{correct} ✗{wrong}</div>
+            <div style={{ fontSize:12, fontWeight:700, color:"var(--tx3)" }}>{num}/{TOTAL}</div>
+          </div>
+        </div>
+        <div className="prog-bar"><div className="prog-fill" style={{ width:`${(num/TOTAL)*100}%`, background:`linear-gradient(90deg,${topic.color},${topic.color}99)` }}/></div>
+      </div>
+
+      {/* Poin system info strip */}
+      <div style={{ background:"var(--sky)", border:"1px solid var(--blue-m)", borderRadius:"var(--r)", padding:"8px 14px", display:"flex", justifyContent:"space-between", fontSize:11, fontWeight:700, color:"var(--tx2)" }}>
+        <span>Tier: <strong style={{ color:lv.tier.col }}>{lv.tier.icon} {lv.tier.name} Lv.{lv.lvlNum}</strong> → +{getWajibPoinBase(studentPoin)} poin dasar</span>
+        <span>🔥 3x=+3 · 5x=+5 · 7x=+8</span>
+      </div>
+
+      {/* Soal */}
+      <div className="soal-card">
+        <div className="soal-num-badge">Soal {num} dari {TOTAL}</div>
+        <div className="soal-text" style={{ fontSize: soal.soal.length > 20 ? "24px" : "32px" }}>{soal.soal}</div>
+        <input
+          ref={inp}
+          className={`ans-input ${st || ""} ${st === "ok" ? "ans-ok" : st === "no" ? "ans-no" : ""}`}
+          value={ans} onChange={e => setAns(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && check()}
+          disabled={st !== null} placeholder="Jawaban..." autoComplete="off"
+        />
+        {st === null && <>
+          <button className="check-btn" style={{ background: topic.color }} onClick={check}>Periksa ✓</button>
+          {num > 1 && <button className="skip-btn" onClick={skip}>Lewati →</button>}
+        </>}
+        {st === "ok" && (
+          <div className="fb-ok">
+            <span style={{ fontSize:22 }}>✅</span>
+            <div style={{ flex:1 }}>
+              <div className="fb-label fb-ok-c">Benar!{streak >= 3 ? ` 🔥 ${streak}x!` : ""}</div>
+              <div style={{ fontSize:12, color:"#0A8A55" }}>+{basePoin + getStreakBonus(streak)} poin{getStreakBonus(streak) > 0 ? ` (termasuk +${getStreakBonus(streak)} streak bonus)` : ""}</div>
+            </div>
+            <button className="next-btn" style={{ flex:"none", width:"auto", padding:"10px 16px", marginTop:0, fontSize:13 }} onClick={next}>
+              {num >= TOTAL ? "Hasil →" : "Lanjut →"}
+            </button>
+          </div>
+        )}
+        {st === "no" && (
+          <div className="fb-no">
+            <div className="fb-label fb-no-c">✗ Salah. Yuk lihat langkahnya:</div>
+            {soal.steps?.length > 0 && (
+              <div className="steps-box">
+                <div className="steps-title">Pembahasan</div>
+                {soal.steps.map((step, i) => (
+                  <div key={i} className="step-row">
+                    <div className={`step-n ${step.startsWith("✅") ? "fin" : ""}`}>{step.startsWith("✅") ? "✓" : i + 1}</div>
+                    <div className="step-txt">{rTxt(step.replace("✅ ", ""))}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button className="next-btn" onClick={next}>{num >= TOTAL ? "Lihat Hasil →" : "Soal Berikutnya →"}</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ARENA COMPONENT
+// ═══════════════════════════════════════════════════════════════
+function Arena({topic, onExit, onFinish, reportActivity}){
+  const TOTAL=10;
+  const [soal,setSoal]=useState(()=>generateSoal(topic));
+  const [ans,setAns]=useState("");
+  const [st,setSt]=useState(null);
+  const [num,setNum]=useState(1);
+  const [correct,setCorrect]=useState(0);
+  const [wrong,setWrong]=useState(0);
+  const [streak,setStreak]=useState(0);
+  const [maxStreak,setMaxStreak]=useState(0);
+  const [done,setDone]=useState(false);
+  const [totalPoin,setTotalPoin]=useState(0);
+  const inp=useRef();
+
+  useEffect(()=>{reportActivity("latihan",topic.nama);},[]);
+  useEffect(()=>{if(st===null&&inp.current)inp.current.focus();},[st,soal]);
+
+  const check=()=>{
+    if(!ans.trim()||st!==null)return;
+    reportActivity("latihan",topic.nama);
+    const ok=checkAnswer(ans,soal.jawaban,soal.type);
+    setSt(ok?"ok":"no");
+    if(ok){const pt=topic.poin+(streak>=3?5:streak>=2?3:0);setCorrect(c=>c+1);setStreak(s=>{const ns=s+1;setMaxStreak(m=>Math.max(m,ns));return ns;});setTotalPoin(p=>p+pt);}
+    else{setWrong(w=>w+1);setStreak(0);}
+  };
+
+  const next=()=>{
+    if(num>=TOTAL){setDone(true);return;}
+    setSoal(generateSoal(topic));setAns("");setSt(null);setNum(n=>n+1);
+  };
+
+  const skip=()=>{setWrong(w=>w+1);setStreak(0);setSoal(generateSoal(topic));setAns("");setSt(null);setNum(n=>n+1);};
+
+  const rStepTxt=txt=>{const p=txt.split(/\*\*(.*?)\*\*/);return p.map((t,i)=>i%2===1?<strong key={i}>{t}</strong>:t);};
+
+  if(done){
+    const pct=Math.round((correct/TOTAL)*100);
+    const emoji=pct>=90?"🏆":pct>=70?"🎉":pct>=50?"👍":"💪";
+    return(
+      <div className="result-screen sci">
+        <div className="result-icon pi">{emoji}</div>
+        <div className="result-score">{correct}/{TOTAL}</div>
+        <div className="result-lbl">soal benar · {pct}%</div>
+        <div className="result-stats">
+          <div className="rs"><div className="rs-val" style={{color:"var(--green)"}}>{correct}</div><div className="rs-lbl">Benar</div></div>
+          <div className="rs"><div className="rs-val" style={{color:"var(--red)"}}>{wrong}</div><div className="rs-lbl">Salah</div></div>
+          <div className="rs"><div className="rs-val" style={{color:"var(--gold)"}}>{maxStreak}🔥</div><div className="rs-lbl">Streak</div></div>
+        </div>
+        <div className="poin-chip">+{totalPoin} poin</div>
+        <div className="result-actions">
+          <button className="btn-sec" onClick={()=>{onFinish(totalPoin,correct,TOTAL);onExit();}}>← Pilih Topik</button>
+          <button className="btn-pri" onClick={()=>{setSoal(generateSoal(topic));setAns("");setSt(null);setNum(1);setCorrect(0);setWrong(0);setStreak(0);setMaxStreak(0);setTotalPoin(0);setDone(false);onFinish(totalPoin,correct,TOTAL);}}>Ulangi 🔄</button>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div className="arena-wrap fu">
+      <div className="arena-header">
+        <div className="arena-meta">
+          <div>
+            <div className="arena-topic">{topic.icon} {topic.nama}</div>
+            <div style={{fontSize:11,color:"var(--tx3)",marginTop:3}}>{topic.tag}</div>
+          </div>
+          <div className="arena-chips">
+            {streak>=2&&<div className="streak-chip">🔥 {streak}x</div>}
+            <div className="score-chip">✓{correct} ✗{wrong}</div>
+            <div style={{fontSize:12,fontWeight:700,color:"var(--tx3)"}}>{num}/{TOTAL}</div>
+          </div>
+        </div>
+        <div className="prog-bar"><div className="prog-fill" style={{width:`${(num/TOTAL)*100}%`}}/></div>
+      </div>
+
+      <div className="soal-card">
+        <div className="soal-num-badge">Soal {num} dari {TOTAL}</div>
+        <div className="soal-text">{soal.soal}</div>
+        {soal.type==="fraction"&&<div className="soal-hint">Jawab contoh: 3/4 atau angka bulat</div>}
+        {soal.type==="sign"&&<div className="soal-hint">Jawab: &gt; atau &lt; atau =</div>}
+        {soal.type==="text"&&<div className="soal-hint">Jawab: lancip / siku-siku / tumpul</div>}
+        <input ref={inp} className={`ans-input ${st||""} ${st==="ok"?"ans-ok":st==="no"?"ans-no":""}`}
+          value={ans} onChange={e=>setAns(e.target.value)} onKeyDown={e=>e.key==="Enter"&&check()} disabled={st!==null} placeholder="Jawaban..." autoComplete="off"/>
+        {st===null&&<>
+          <button className="check-btn" onClick={check}>Periksa ✓</button>
+          {num>1&&<button className="skip-btn" onClick={skip}>Lewati →</button>}
+        </>}
+        {st==="ok"&&(
+          <div className="fb-ok">
+            <span style={{fontSize:22}}>✅</span>
+            <div style={{flex:1}}>
+              <div className="fb-label fb-ok-c">Benar!{streak>=2?` 🔥 ${streak}x streak!`:""}</div>
+              <div style={{fontSize:12,color:"#0A8A55"}}>+{topic.poin+(streak>=3?5:streak>=2?3:0)} poin</div>
+            </div>
+            <button className="next-btn" style={{flex:"none",width:"auto",padding:"10px 16px",marginTop:0,fontSize:13}} onClick={next}>
+              {num>=TOTAL?"Hasil →":"Lanjut →"}
+            </button>
+          </div>
+        )}
+        {st==="no"&&(
+          <div className="fb-no">
+            <div className="fb-label fb-no-c">✗ Salah. Yuk pahami langkahnya:</div>
+            {soal.steps?.length>0&&(
+              <div className="steps-box">
+                <div className="steps-title">Pembahasan Langkah demi Langkah</div>
+                {soal.steps.map((step,i)=>(
+                  <div key={i} className="step-row">
+                    <div className={`step-n ${step.startsWith("✅")?"fin":""}`}>{step.startsWith("✅")?"✓":i+1}</div>
+                    <div className="step-txt">{rStepTxt(step.replace("✅ ",""))}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button className="next-btn" onClick={next}>{num>=TOTAL?"Lihat Hasil →":"Soal Berikutnya →"}</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MONITORING PANEL
+// ═══════════════════════════════════════════════════════════════
+function MonitoringPanel({students}){
+  const [snap,setSnap]=useState(ActivityStore.snap());
+  useEffect(()=>{
+    const unsub=ActivityStore.subscribe(d=>setSnap({...d}));
+    const iv=setInterval(()=>setSnap(ActivityStore.snap()),5000);
+    return()=>{unsub();clearInterval(iv);};
+  },[]);
+  const sts=students.map(s=>({...s,info:getStatusInfo(snap[s.id]),lastSeen:snap[s.id]?.lastSeen}));
+  const ac=sts.filter(s=>s.info.color==="green").length;
+  const rc=sts.filter(s=>s.info.color==="red").length;
+  const gc=sts.filter(s=>s.info.color==="grey").length;
+  return(
+    <div className="monitor-banner fu1">
+      <div className="monitor-hd">
+        <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}>
+          <span style={{width:18,height:18,color:"var(--blue)",display:"flex"}}><IcoChart/></span>
+          <div className="monitor-hd-t">Status Keaktifan Siswa</div>
+        </div>
+        <div className="live-badge"><span className="live-blink">●</span> LIVE</div>
+      </div>
+      <div className="monitor-grid">
+        {sts.map((s,i)=>(
+          <div key={s.id} className={`mc ${s.info.color==="green"?"active-bg":s.info.color==="red"?"inactive-bg":""}`} style={i===sts.length-1&&sts.length%2!==0?{gridColumn:"1/-1"}:{}}>
+            <div className={`mc-av ${s.info.color}`}>{s.name[0]}</div>
+            <div className="mc-info">
+              <div className="mc-name">{s.name}</div>
+              <div style={{display:"flex",alignItems:"center",gap:5}}><StatusDot color={s.info.color}/><span className={`mc-act ${s.info.color}`}>{s.info.act}</span></div>
+              <div className="mc-time">{s.lastSeen?timeAgo(s.lastSeen):"Belum login"}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="sum-row">
+        {[{n:ac,l:"🟢 Aktif",c:"var(--green)"},{n:rc,l:"🔴 Tidak aktif",c:"var(--red)"},{n:gc,l:"⚫ Offline",c:"var(--tx3)"},{n:students.length,l:"Total",c:"var(--blue)"}].map(x=>(
+          <div key={x.l} className="sum-item"><div className="sum-num" style={{color:x.c}}>{x.n}</div><div className="sum-lbl">{x.l}</div></div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STUDENT APP
+// ═══════════════════════════════════════════════════════════════
+function StudentApp({user,onLogout}){
+  const [tab,setTab]=useState("home");
+  const [activeTopic,setActiveTopic]=useState(null);
+  const [activeWajib,setActiveWajib]=useState(null);
+  const [poin,setPoin]=useState(user.poin);
+  const [history,setHistory]=useState([]);
+  const lv=getLvl(poin);
+  const reportActivity=useActivityReporter(user.id);
+
+  useEffect(()=>{reportActivity("idle");},[tab]);
+
+  const [statusInfo,setStatusInfo]=useState(getStatusInfo(ActivityStore.data[user.id]));
+  useEffect(()=>{
+    const unsub=ActivityStore.subscribe(d=>setStatusInfo(getStatusInfo(d[user.id])));
+    const iv=setInterval(()=>setStatusInfo(getStatusInfo(ActivityStore.data[user.id])),5000);
+    return()=>{unsub();clearInterval(iv);};
+  },[user.id]);
+
+  // ── Wajib state: track which ops done today ──────────────────
+  const [wajibDone,setWajibDone]=useState({}); // {tambah:timestamp, kurang:ts, ...}
+  const todayWajibCount = WAJIB_TOPICS.filter(t=>isTodayDone(wajibDone[t.op])).length;
+  const wajibAllDone = todayWajibCount >= 1; // cukup 1 op selesai untuk buka bank materi
+
+  // recent topics (last 3 unique) from bank materi
+  const recentTopicIds=[...new Set(history.filter(h=>!h.isWajib).slice(0,10).map(h=>h.topicId))].slice(0,3);
+
+  const handleFinishBank=(pt,correct,total)=>{
+    setPoin(p=>p+pt);
+    const entry={topicId:activeTopic.id,topicName:activeTopic.nama,topicIcon:activeTopic.icon,correct,total,poin:pt,isWajib:false,timestamp:Date.now()};
+    setHistory(h=>[entry,...h].slice(0,50));
+    HistoryStore.add(user.id,entry);
+  };
+
+  const handleFinishWajib=(pt,correct,total,op)=>{
+    setPoin(p=>p+pt);
+    const topic=WAJIB_TOPICS.find(t=>t.op===op);
+    const entry={topicId:"wajib-"+op,topicName:topic.nama+" (Wajib)",topicIcon:topic.icon,correct,total,poin:pt,isWajib:true,timestamp:Date.now()};
+    setHistory(h=>[entry,...h].slice(0,50));
+    HistoryStore.add(user.id,entry);
+    setWajibDone(d=>({...d,[op]:Date.now()}));
+  };
+
+  // ── Arena Wajib screen ──────────────────────────────────────
+  if(activeWajib) return(
+    <div className="shell">
+      <div className="topbar"><NeoLogo/><div className="topbar-sp"/><button className="logout-btn" onClick={()=>{reportActivity("idle");setActiveWajib(null);}}>✕ Tutup</button></div>
+      <div className={`sbar ${statusInfo.color==="green"?"active":"inactive"}`}><StatusDot color={statusInfo.color}/><span>{statusInfo.color==="green"?"Aktif terlihat tutor ✓":"Tidak aktif — tutor dapat melihat ini"}</span></div>
+      <div className="page">
+        <button className="back-btn" onClick={()=>{reportActivity("idle");setActiveWajib(null);}}><span style={{width:16,height:16,display:"flex"}}><IcoChevL/></span> Kembali</button>
+        <ArenaWajib op={activeWajib} studentPoin={poin} reportActivity={reportActivity}
+          onExit={()=>{reportActivity("idle");setActiveWajib(null);}}
+          onFinish={handleFinishWajib}/>
+      </div>
+    </div>
+  );
+
+  // ── Arena Bank Materi screen ────────────────────────────────
+  if(activeTopic) return(
+    <div className="shell">
+      <div className="topbar"><NeoLogo/><div className="topbar-sp"/><button className="logout-btn" onClick={()=>{reportActivity("idle");setActiveTopic(null);}}>✕ Tutup</button></div>
+      <div className={`sbar ${statusInfo.color==="green"?"active":"inactive"}`}><StatusDot color={statusInfo.color}/><span>{statusInfo.color==="green"?"Aktif terlihat tutor ✓":"Tidak aktif — tutor dapat melihat ini"}</span></div>
+      <div className="page">
+        <button className="back-btn" onClick={()=>{reportActivity("idle");setActiveTopic(null);}}><span style={{width:16,height:16,display:"flex"}}><IcoChevL/></span> Pilih Topik</button>
+        <Arena topic={activeTopic} reportActivity={reportActivity} onExit={()=>{reportActivity("idle");setActiveTopic(null);}} onFinish={handleFinishBank}/>
+      </div>
+    </div>
+  );
+
+  return(
+    <div className="shell">
+      <div className="topbar"><NeoLogo/><div className="topbar-sp"/><div className="uchip"><div className="uchip-av">{user.name[0]}</div><span className="uchip-name">{user.name.split(" ")[0]}</span></div><button className="logout-btn" onClick={onLogout}>Keluar</button></div>
+      <div className={`sbar ${statusInfo.color==="green"?"active":"inactive"}`}><StatusDot color={statusInfo.color}/><span>{statusInfo.color==="green"?"Status kamu terlihat Aktif oleh tutor ✓":"Tidak aktif lebih dari 2 menit — tutor dapat melihat ini"}</span></div>
+      <div className="page">
+
+        {tab==="home"&&<>
+          <div className="pg-title fu">Halo, {user.name.split(" ")[0]}! 👋</div>
+          <div className="pg-sub fu1">Selesaikan latihan wajib dulu, lalu pilih materi bebas</div>
+          <div className="lv-banner fu2" style={{background:lv.isMythic?"linear-gradient(120deg,#FF9500,#FFB800)":lv.lvlNum>=26?"linear-gradient(120deg,#F04060,#FF6B8A)":lv.lvlNum>=21?"linear-gradient(120deg,#8B5CF6,#A78BFA)":lv.lvlNum>=16?"linear-gradient(120deg,#F5A623,#FFCC60)":lv.lvlNum>=11?"linear-gradient(120deg,#12C07A,#34D399)":lv.lvlNum>=6?"linear-gradient(120deg,#1A6BFF,#4D8FFF)":"linear-gradient(120deg,#8A9ABB,#B0BDD0)"}}>
+            <div className="lv-deco" style={{width:160,height:160,right:-40,top:-40}}/>
+            <div className="lv-deco" style={{width:80,height:80,right:70,bottom:-30}}/>
+            <div className="lv-row">
+              <div>
+                <div className="lv-label">Level Kamu</div>
+                <div className="lv-name" style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span>{lv.tier.icon}</span>
+                  <span>{lv.isMythic ? "⚡ Mythic" : `${lv.tier.name} ${lv.lvlNum}`}</span>
+                </div>
+                <div style={{fontSize:11,opacity:.8,marginTop:2}}>{lv.tier.desc}</div>
+              </div>
+              <div>
+                <div className="lv-poin">{poin}</div>
+                <div className="lv-poin-lbl">Total Poin</div>
+              </div>
+            </div>
+            <div className="lv-track"><div className="lv-fill" style={{width:`${lv.pct}%`}}/></div>
+            <div className="lv-hint">
+              {lv.isMythic ? "🏆 Level Maksimal — Mythic!" : `${lv.pct}% menuju Level ${lv.nextLvl}${lv.nextTier && lv.nextTier.name !== lv.tier.name ? " ("+lv.nextTier.name+")" : ""} · ${lv.poinToNext} poin lagi`}
+            </div>
+          </div>
+
+          {/* ── LATIHAN WAJIB NEO ── */}
+          <div className="sec-hd fu3">
+            <div className="sec-hd-t">⚡ Latihan Wajib NEO</div>
+            <div className="sec-hd-line"/>
+            <span style={{fontSize:11,fontWeight:700,color:wajibAllDone?"var(--green)":"var(--gold)",whiteSpace:"nowrap"}}>
+              {wajibAllDone ? "✅ Selesai hari ini!" : `${todayWajibCount}/4 selesai`}
+            </span>
+          </div>
+
+          {/* Poin info box */}
+          <div style={{background:"rgba(26,107,255,.05)",border:"1px solid var(--blue-m)",borderRadius:"var(--r)",padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}} className="fu3">
+            <span style={{fontSize:12,color:"var(--blue)",fontWeight:700}}>
+              {lv.tier.icon} <strong style={{color:lv.tier.col}}>{lv.tier.name} Lv.{lv.lvlNum}</strong> · +{getWajibPoinBase(poin)} poin dasar/soal
+            </span>
+            <span style={{fontSize:11,color:"var(--tx3)",fontWeight:600}}>🔥 Streak: +3/+5/+8</span>
+          </div>
+
+          <div className="topics-grid fu3" style={{marginBottom:22}}>
+            {WAJIB_TOPICS.map(t=>{
+              const done=isTodayDone(wajibDone[t.op]);
+              const todayHist=history.filter(h=>h.isWajib&&h.topicId==="wajib-"+t.op&&isTodayDone(h.timestamp));
+              const lastSession=todayHist[0];
+              return(
+                <div key={t.id} className="topic-card" onClick={()=>setActiveWajib(t.op)}
+                  style={{border:`1.5px solid ${done?"rgba(18,192,122,.35)":"var(--bdr)"}`,background:done?"rgba(18,192,122,.04)":"var(--wh)"}}>
+                  <div className="topic-accent" style={{background:t.color}}/>
+                  <span className="topic-icon-big">{t.icon}</span>
+                  <div className="topic-name">{t.nama}</div>
+                  <div style={{fontSize:10,color:"var(--tx3)",marginBottom:4}}>
+                    Soal acak adaptif · Level {WAJIB_LEVEL_LABEL[Math.min(studentLevel,6)]}
+                  </div>
+                  {done ? (
+                    <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:"#0A8A55",background:"var(--gbg)",border:"1px solid var(--gbdr)",borderRadius:100,padding:"3px 9px",width:"fit-content"}}>
+                      ✓ Selesai{lastSession?` · ${lastSession.correct}/${lastSession.total} benar`:""}
+                    </div>
+                  ) : (
+                    <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:t.color,background:t.color+"15",border:`1px solid ${t.color}33`,borderRadius:100,padding:"3px 9px",width:"fit-content"}}>
+                      Mulai → +{WAJIB_POIN_BASE[Math.min(studentLevel,5)]} poin
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── BANK MATERI — locked until 1 wajib done ── */}
+          <div className="sec-hd fu4">
+            <div className="sec-hd-t">
+              {wajibAllDone ? "📚 Pilih Apa Hari Ini?" : "🔒 Bank Materi"}
+            </div>
+            <div className="sec-hd-line"/>
+          </div>
+
+          {!wajibAllDone ? (
+            /* LOCKED state */
+            <div style={{background:"var(--off)",border:"2px dashed var(--bdr)",borderRadius:"var(--r2)",padding:"32px 20px",textAlign:"center"}} className="fu4">
+              <div style={{fontSize:48,marginBottom:12}}>🔒</div>
+              <div style={{fontFamily:"'Syne',sans-serif",fontSize:16,fontWeight:800,color:"var(--tx)",marginBottom:8}}>Bank Materi Terkunci</div>
+              <div style={{fontSize:13,color:"var(--tx2)",marginBottom:18,lineHeight:1.6}}>
+                Selesaikan minimal <strong>1 sesi Latihan Wajib</strong> di atas untuk membuka akses ke semua topik hari ini.
+              </div>
+              <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+                {WAJIB_TOPICS.filter(t=>!isTodayDone(wajibDone[t.op])).slice(0,2).map(t=>(
+                  <button key={t.id} onClick={()=>setActiveWajib(t.op)}
+                    style={{padding:"10px 18px",background:t.color,color:"white",border:"none",borderRadius:"var(--r)",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                    {t.icon} {t.nama}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            /* UNLOCKED state */
+            <>
+              <div style={{background:"rgba(18,192,122,.06)",border:"1px solid var(--gbdr)",borderRadius:"var(--r)",padding:"9px 14px",marginBottom:14,fontSize:12,color:"#0A8A55",fontWeight:700,display:"flex",alignItems:"center",gap:7}} className="fu4">
+                🎉 Latihan wajib selesai! Kamu bebas pilih topik apa saja hari ini.
+              </div>
+
+              {recentTopicIds.length>0&&<>
+                <div className="sec-hd fu4"><div className="sec-hd-t">🕐 Terakhir Dipelajari</div><div className="sec-hd-line"/></div>
+                <div className="topics-grid" style={{marginBottom:20}}>
+                  {recentTopicIds.map(tid=>{
+                    const t=BANK.find(b=>b.id===tid);if(!t)return null;
+                    const last=history.find(h=>h.topicId===tid);
+                    return(
+                      <div key={t.id} className="topic-card recent" onClick={()=>setActiveTopic(t)}>
+                        <div className="topic-accent" style={{background:t.color}}/>
+                        <span className="topic-icon-big">{t.icon}</span>
+                        <div className="topic-name">{t.nama}</div>
+                        {last&&<div className="topic-last">🕐 {timeAgo(last.timestamp)} · {last.correct}/{last.total} benar</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>}
+
+              <div style={{background:"rgba(26,107,255,.05)",border:"1px solid var(--blue-m)",borderRadius:"var(--r)",padding:"10px 14px",marginBottom:14,fontSize:12,color:"var(--blue)",fontWeight:600}}>
+                💡 Bebas pilih topik sesuai materi di sekolah kamu. Tag kelas hanya panduan, bukan batasan!
+              </div>
+
+              {JENJANG_META.map((jm,ji)=>(
+                <div key={jm.j} className={`jenjang-section fu${ji+1}`}>
+                  <div className="jenjang-header" style={{background:jm.bg}}>
+                    <div style={{width:28,height:28,borderRadius:8,background:jm.color,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontFamily:"'Syne',sans-serif",fontSize:13,fontWeight:800}}>J{jm.j}</div>
+                    <div>
+                      <div className="jenjang-num" style={{color:jm.color}}>Jenjang {jm.j}</div>
+                      <div className="jenjang-name" style={{color:jm.color}}>{jm.label}</div>
+                    </div>
+                  </div>
+                  <div className="topics-grid">
+                    {BANK.filter(b=>b.jenjang===jm.j).map(t=>(
+                      <div key={t.id} className={`topic-card ${recentTopicIds.includes(t.id)?"recent":""}`} onClick={()=>setActiveTopic(t)}>
+                        <div className="topic-accent" style={{background:t.color}}/>
+                        <span className="topic-icon-big">{t.icon}</span>
+                        <div className="topic-name">{t.nama}</div>
+                        <div className="topic-tag">{t.tag}</div>
+                        <span className="panduan-badge free">{t.panduan} · bebas akses</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </>}
+
+        {tab==="riwayat"&&<>
+          <div className="pg-title fu">Riwayat Belajar</div>
+          <div className="pg-sub fu1">Topik yang sudah pernah kamu latih</div>
+          {history.length===0?(
+            <div className="hist-empty">Belum ada riwayat. Yuk mulai latihan! 🎯</div>
+          ):(
+            history.map((h,i)=>{
+              const showDate = i===0||new Date(h.timestamp).toDateString()!==new Date(history[i-1]?.timestamp).toDateString();
+              return(
+                <div key={i}>
+                  {showDate&&<div className="hist-day-label">{new Date(h.timestamp).toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long"})}</div>}
+                  <div className="hist-row">
+                    <div className="hist-icon">{h.topicIcon||"📚"}</div>
+                    <div className="hist-info">
+                      <div className="hist-topic">{h.topicName}</div>
+                      <div className="hist-meta">{formatDate(h.timestamp)} · {Math.round((h.correct/h.total)*100)}% benar</div>
+                    </div>
+                    <div className="hist-score">
+                      <div className="hist-poin">+{h.poin} pts</div>
+                      <div className="hist-acc">{h.correct}/{h.total}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </>}
+
+        {tab==="profil"&&<>
+          <div className="pg-title fu">Profil</div>
+          <div style={{background:"var(--wh)",border:"1.5px solid var(--bdr)",borderRadius:"var(--r3)",padding:22,marginBottom:12,boxShadow:"var(--sh)"}} className="fu1">
+            <div style={{display:"flex",alignItems:"center",gap:15,marginBottom:20}}>
+              <div style={{width:56,height:56,borderRadius:14,background:lv.tier.col,color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Syne',sans-serif",fontSize:22,fontWeight:800}}>{lv.tier.icon}</div>
+              <div>
+                <div style={{fontFamily:"'Syne',sans-serif",fontSize:18,fontWeight:800}}>{user.name}</div>
+                <div style={{fontSize:12,color:"var(--tx2)",marginTop:2}}>@{user.username}</div>
+                <div style={{marginTop:4,display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:12,fontWeight:800,color:lv.tier.col}}>{lv.tier.icon} {lv.tier.name} Lv.{lv.lvlNum}</span>
+                  <span style={{fontSize:11,color:"var(--tx3)"}}>— {lv.tier.desc}</span>
+                </div>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+              {[{v:poin,l:"Total Poin"},{v:`Lv.${lv.lvlNum}`,l:lv.tier.name,c:lv.tier.col},{v:history.length,l:"Sesi Latihan"},{v:[...new Set(history.map(h=>h.topicId))].length,l:"Topik Dijelajahi"}].map(s=>(
+                <div key={s.l} style={{background:"var(--sky)",border:"1px solid var(--blue-m)",borderRadius:"var(--r)",padding:13}}>
+                  <div style={{fontFamily:"'Syne',sans-serif",fontSize:19,fontWeight:800,color:s.c||"var(--blue)"}}>{s.v}</div>
+                  <div style={{fontSize:11,color:"var(--tx2)",fontWeight:600,marginTop:2}}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+            {/* Level progress */}
+            <div style={{marginTop:14,padding:"12px 14px",background:lv.tier.bg,border:`1px solid ${lv.tier.col}33`,borderRadius:"var(--r)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                <span style={{fontSize:12,fontWeight:700,color:lv.tier.col}}>{lv.tier.icon} {lv.isMythic?"Mythic Max":`Menuju Level ${lv.nextLvl}`}</span>
+                <span style={{fontSize:12,fontWeight:700,color:lv.tier.col}}>{lv.isMythic?"🏆":lv.poinToNext+" poin lagi"}</span>
+              </div>
+              <div style={{height:8,background:"rgba(0,0,0,.08)",borderRadius:100,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${lv.pct}%`,background:lv.tier.col,borderRadius:100,transition:"width .8s"}}/>
+              </div>
+            </div>
+          </div>
+          <button style={{width:"100%",padding:13,background:"rgba(240,64,96,.06)",border:"1.5px solid rgba(240,64,96,.2)",borderRadius:"var(--r)",color:"var(--red)",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer"}} onClick={onLogout}>Keluar</button>
+        </>}
+      </div>
+
+      <nav className="bot-nav">
+        {[{k:"home",l:"Pilih Topik",ic:<IcoGrid/>},{k:"riwayat",l:"Riwayat",ic:<IcoHistory/>},{k:"profil",l:"Profil",ic:<IcoUser/>}].map(n=>(
+          <button key={n.k} className={`bot-btn ${tab===n.k?"on":""}`} onClick={()=>setTab(n.k)}>{n.ic}{n.l}{tab===n.k&&<div className="nb-dot"/>}</button>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TUTOR APP — Full student management + level settings
+// ═══════════════════════════════════════════════════════════════
+function TutorApp({onLogout}){
+  const [students,setStudents]=useState(DEFAULT_STUDENTS);
+  const [tab,setTab]=useState("dashboard");
+  const [selStu,setSelStu]=useState(null);
+  const [snap,setSnap]=useState(ActivityStore.snap());
+  const [histSnap,setHistSnap]=useState({});
+  const [lvSettings,setLvSettings]=useState(LevelSettings.get());
+  const [showAdd,setShowAdd]=useState(false);
+  const [showSettings,setShowSettings]=useState(false);
+  const [showEdit,setShowEdit]=useState(null); // student obj
+  const [showDel,setShowDel]=useState(null);
+  const [form,setForm]=useState({name:"",username:"",password:"",startLevel:1});
+  const [settingsForm,setSettingsForm]=useState({poinPerLevel:100,startLevel:1});
+  const [formErr,setFormErr]=useState("");
+
+  useEffect(()=>{
+    const u1=ActivityStore.subscribe(d=>setSnap({...d}));
+    const u2=HistoryStore.subscribe(d=>setHistSnap({...d}));
+    const u3=LevelSettings.subscribe(d=>setLvSettings({...d}));
+    const iv=setInterval(()=>setSnap(ActivityStore.snap()),5000);
+    return()=>{u1();u2();u3();clearInterval(iv);};
+  },[]);
+
+  const addStudent=()=>{
+    setFormErr("");
+    if(!form.name.trim()||!form.username.trim()||!form.password.trim()){setFormErr("Nama, username, dan password wajib diisi");return;}
+    if(students.find(s=>s.username===form.username.trim())){setFormErr("Username sudah dipakai");return;}
+    const startLvl=Math.max(1,Math.min(31,Number(form.startLevel)||1));
+    const startPoin=(startLvl-1)*lvSettings.poinPerLevel;
+    setStudents(p=>[...p,{id:Date.now(),name:form.name.trim(),username:form.username.trim(),password:form.password.trim(),poin:startPoin,startLevel:startLvl}]);
+    setForm({name:"",username:"",password:"",startLevel:1});
+    setShowAdd(false);
+  };
+
+  const saveEdit=()=>{
+    setFormErr("");
+    if(!showEdit.name.trim()||!showEdit.username.trim()||!showEdit.password.trim()){setFormErr("Nama, username, dan password wajib diisi");return;}
+    if(students.find(s=>s.username===showEdit.username.trim()&&s.id!==showEdit.id)){setFormErr("Username sudah dipakai");return;}
+    const startLvl=Math.max(1,Math.min(31,Number(showEdit.startLevel)||1));
+    const poinForLevel=(startLvl-1)*lvSettings.poinPerLevel;
+    setStudents(p=>p.map(s=>s.id===showEdit.id?{...showEdit,startLevel:startLvl,poin:Math.max(poinForLevel,showEdit.poin)}:s));
+    if(selStu?.id===showEdit.id) setSelStu({...showEdit,startLevel:startLvl});
+    setShowEdit(null);
+  };
+
+  const deleteStudent=(id)=>{
+    setStudents(p=>p.filter(s=>s.id!==id));
+    if(selStu?.id===id)setSelStu(null);
+    setShowDel(null);
+  };
+
+  const saveSettings=()=>{
+    const ppv=Math.max(10,Math.min(1000,Number(settingsForm.poinPerLevel)||100));
+    const sl=Math.max(1,Math.min(31,Number(settingsForm.startLevel)||1));
+    LevelSettings.set({poinPerLevel:ppv,startLevel:sl});
+    setShowSettings(false);
+  };
+
+  // ── STUDENT DETAIL ──
+  if(selStu){
+    const s=students.find(x=>x.id===selStu.id)||selStu;
+    const si=getStatusInfo(snap[s.id]);
+    const lv=getLvl(s.poin);
+    const hist=histSnap[s.id]||[];
+    const topicFreq={};
+    hist.forEach(h=>{topicFreq[h.topicId]=(topicFreq[h.topicId]||0)+1;});
+    const topTopics=Object.entries(topicFreq).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    return(
+      <div className="shell">
+        <div className="topbar"><NeoLogo/><div className="topbar-sp"/>
+          <button className="logout-btn" style={{marginRight:6}} onClick={()=>setShowEdit({...s})}>✏️ Edit</button>
+          <button className="logout-btn" style={{borderColor:"rgba(240,64,96,.3)",color:"var(--red)"}} onClick={()=>setShowDel(s.id)}>🗑️</button>
+          <button className="logout-btn" style={{marginLeft:6}} onClick={()=>setSelStu(null)}>← Kembali</button>
+        </div>
+        <div className="page">
+          {/* Student header card */}
+          <div className="stu-detail-card fu" style={{borderLeft:`4px solid ${lv.tier.col}`}}>
+            <div style={{display:"flex",alignItems:"center",gap:13}}>
+              <div style={{width:52,height:52,borderRadius:12,background:lv.tier.col,color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{lv.tier.icon}</div>
+              <div style={{flex:1}}>
+                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:16}}>{s.name}</div>
+                <div style={{fontSize:12,color:"var(--tx2)",marginTop:2}}>@{s.username}</div>
+                <div style={{marginTop:5,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  <span className={`spill ${si.color}`}><StatusDot color={si.color}/>{si.label}</span>
+                  <span style={{fontSize:11,fontWeight:800,color:lv.tier.col}}>{lv.tier.icon} {lv.tier.name} Lv.{lv.lvlNum}</span>
+                  <span style={{fontSize:11,color:"var(--tx3)"}}>{lv.tier.desc}</span>
+                </div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontFamily:"'Syne',sans-serif",fontSize:22,fontWeight:800,color:lv.tier.col}}>{s.poin}</div>
+                <div style={{fontSize:10,color:"var(--tx3)"}}>POIN</div>
+              </div>
+            </div>
+            {/* Level progress */}
+            <div style={{marginTop:12,padding:"10px 12px",background:lv.tier.bg,borderRadius:"var(--r)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                <span style={{fontSize:11,fontWeight:700,color:lv.tier.col}}>{lv.isMythic?"⚡ Mythic Max":lv.pct+"% menuju Lv."+lv.nextLvl}</span>
+                <span style={{fontSize:11,color:"var(--tx3)"}}>{lv.isMythic?"🏆":lv.poinToNext+" poin lagi"}</span>
+              </div>
+              <div style={{height:6,background:"rgba(0,0,0,.08)",borderRadius:100}}>
+                <div style={{height:"100%",width:`${lv.pct}%`,background:lv.tier.col,borderRadius:100}}/>
+              </div>
+            </div>
+          </div>
+
+          {/* Topic stats */}
+          <div className="sec-hd fu1"><div className="sec-hd-t">📊 Topik yang Sering Dipelajari</div><div className="sec-hd-line"/></div>
+          {topTopics.length===0?(
+            <div style={{background:"var(--wh)",border:"1.5px solid var(--bdr)",borderRadius:"var(--r)",padding:"20px",textAlign:"center",color:"var(--tx3)",fontSize:13,marginBottom:16}}>Belum ada riwayat latihan</div>
+          ):(
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+              {topTopics.map(([tid,freq])=>{
+                const isWajib=tid.startsWith("wajib-");
+                const t=isWajib?WAJIB_TOPICS.find(w=>"wajib-"+w.op===tid):BANK.find(b=>b.id===tid);
+                if(!t)return null;
+                const topicHist=hist.filter(h=>h.topicId===tid);
+                const avgAcc=Math.round(topicHist.reduce((a,h)=>a+(h.correct/h.total),0)/topicHist.length*100);
+                return(
+                  <div key={tid} style={{background:"var(--wh)",border:"1.5px solid var(--bdr)",borderRadius:"var(--r)",padding:"12px 14px",display:"flex",alignItems:"center",gap:12}}>
+                    <div style={{width:36,height:36,borderRadius:9,background:isWajib?"rgba(26,107,255,.08)":"var(--off)",border:`1px solid ${isWajib?"var(--blue-m)":"var(--bdr)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{t.icon}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:13,display:"flex",alignItems:"center",gap:5}}>
+                        {isWajib&&<span style={{fontSize:9,fontWeight:800,background:"var(--blue)",color:"white",padding:"2px 6px",borderRadius:100}}>WAJIB</span>}
+                        {isWajib?t.nama+" (Wajib)":t.nama}
+                      </div>
+                      <div style={{fontSize:11,color:"var(--tx3)",marginTop:2}}>{freq}x latihan · rata-rata {avgAcc}% benar</div>
+                    </div>
+                    <div style={{fontFamily:"'Syne',sans-serif",fontSize:15,fontWeight:800,color:avgAcc>=80?"var(--green)":avgAcc>=60?"var(--gold)":"var(--red)"}}>{avgAcc}%</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Full history */}
+          <div className="sec-hd fu2"><div className="sec-hd-t">📋 Riwayat Lengkap</div><div className="sec-hd-line"/><span style={{fontSize:11,color:"var(--tx3)"}}>{hist.length} sesi</span></div>
+          {hist.length===0?(
+            <div className="hist-empty">Siswa ini belum pernah latihan</div>
+          ):(
+            hist.map((h,i)=>{
+              const showDate=i===0||new Date(h.timestamp).toDateString()!==new Date(hist[i-1]?.timestamp).toDateString();
+              return(
+                  <div key={i}>
+                    {showDate&&<div className="hist-day-label">{new Date(h.timestamp).toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long"})}</div>}
+                    <div className="hist-row">
+                      <div className="hist-icon">{h.topicIcon||"📚"}</div>
+                      <div className="hist-info">
+                        <div className="hist-topic" style={{display:"flex",alignItems:"center",gap:5}}>
+                          {h.isWajib&&<span style={{fontSize:9,fontWeight:800,background:"var(--blue)",color:"white",padding:"2px 6px",borderRadius:100}}>WAJIB</span>}
+                          {h.topicName}
+                        </div>
+                        <div className="hist-meta">{formatDate(h.timestamp)}</div>
+                      </div>
+                      <div className="hist-score">
+                        <div className="hist-poin">+{h.poin}</div>
+                        <div className="hist-acc" style={{color:h.correct/h.total>=0.8?"var(--green)":h.correct/h.total>=0.6?"var(--gold)":"var(--red)"}}>{h.correct}/{h.total}</div>
+                      </div>
+                    </div>
+                  </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Edit modal */}
+        {showEdit&&(
+          <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&setShowEdit(null)}>
+            <div className="modal-box sci">
+              <div className="modal-title">✏️ Edit Data Siswa</div>
+              {formErr&&<div className="login-err">{formErr}</div>}
+              {[{f:"name",l:"Nama Lengkap",t:"text"},{f:"username",l:"Username",t:"text"},{f:"password",l:"Password",t:"password"}].map(({f,l,t})=>(
+                <div className="field" key={f}><label>{l}</label><input type={t} value={showEdit[f]||""} onChange={e=>setShowEdit(x=>({...x,[f]:e.target.value}))}/></div>
+              ))}
+              <div className="field">
+                <label>Set Level Awal (1–31)</label>
+                <input type="number" min={1} max={31} value={showEdit.startLevel||1} onChange={e=>setShowEdit(x=>({...x,startLevel:e.target.value}))}/>
+                <div style={{fontSize:11,color:"var(--tx3)",marginTop:4}}>
+                  Level {showEdit.startLevel||1} = {getTier(Number(showEdit.startLevel)||1).icon} {getTier(Number(showEdit.startLevel)||1).name} · Poin awal: {(Math.max(1,Number(showEdit.startLevel)||1)-1)*lvSettings.poinPerLevel}
+                </div>
+              </div>
+              <div className="modal-acts">
+                <button className="m-cancel" onClick={()=>{setShowEdit(null);setFormErr("");}}>Batal</button>
+                <button className="m-ok" onClick={saveEdit}>Simpan Perubahan</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete confirm */}
+        {showDel&&(
+          <div className="modal-bg">
+            <div className="modal-box sci" style={{maxWidth:360}}>
+              <div className="modal-title">Hapus Siswa?</div>
+              <p style={{fontSize:14,color:"var(--tx2)",lineHeight:1.7}}>Data <strong style={{color:"var(--tx)"}}>{s.name}</strong> akan dihapus permanen.</p>
+              <div className="modal-acts">
+                <button className="m-cancel" onClick={()=>setShowDel(null)}>Batal</button>
+                <button style={{flex:1,padding:12,background:"rgba(240,64,96,.08)",border:"1.5px solid rgba(240,64,96,.3)",borderRadius:"var(--r)",color:"var(--red)",fontWeight:700,fontSize:14,cursor:"pointer"}} onClick={()=>deleteStudent(s.id)}>Hapus</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── MAIN TUTOR VIEW ──
+  return(
+    <div className="shell">
+      <div className="topbar"><NeoLogo/><div className="topbar-sp"/>
+        <button className="logout-btn" style={{marginRight:6}} onClick={()=>{setSettingsForm({poinPerLevel:lvSettings.poinPerLevel,startLevel:lvSettings.startLevel});setShowSettings(true);}}>⚙️ Pengaturan</button>
+        <div className="uchip"><div className="uchip-av">T</div><span className="uchip-name">Tutor</span></div>
+        <button className="logout-btn" onClick={onLogout}>Keluar</button>
+      </div>
+      <div className="page">
+
+        {tab==="dashboard"&&<>
+          <div className="pg-title fu">Dashboard Tutor</div>
+          <div className="pg-sub fu1">Pantau keaktifan & progres siswa real-time</div>
+          <MonitoringPanel students={students}/>
+
+          {/* Settings summary */}
+          <div style={{background:"linear-gradient(120deg,#EEF4FF,#F5F8FF)",border:"1.5px solid var(--blue-m)",borderRadius:"var(--r)",padding:"12px 16px",marginBottom:18,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}} className="fu2">
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:800,color:"var(--blue)",marginBottom:2}}>⚙️ Pengaturan Level Aktif</div>
+              <div style={{fontSize:11,color:"var(--tx2)"}}>
+                <strong>{lvSettings.poinPerLevel} poin</strong> per naik level · Level awal default: <strong>Lv.{lvSettings.startLevel} ({getTier(lvSettings.startLevel).name})</strong>
+              </div>
+            </div>
+            <button onClick={()=>{setSettingsForm({poinPerLevel:lvSettings.poinPerLevel,startLevel:lvSettings.startLevel});setShowSettings(true);}}
+              style={{padding:"7px 14px",background:"var(--blue)",color:"white",border:"none",borderRadius:"var(--r)",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+              Ubah
+            </button>
+          </div>
+
+          <div className="t-stats fu2">
+            <div className="t-stat"><div className="t-stat-num">{students.length}</div><div className="t-stat-label">Total Siswa</div></div>
+            <div className="t-stat"><div className="t-stat-num">{BANK.length}</div><div className="t-stat-label">Topik Bank</div></div>
+            <div className="t-stat"><div className="t-stat-num" style={{color:"var(--green)"}}>{Object.values(histSnap).flat().length}</div><div className="t-stat-label">Sesi Latihan</div></div>
+            <div className="t-stat"><div className="t-stat-num" style={{color:"var(--gold)"}}>{lvSettings.poinPerLevel}</div><div className="t-stat-label">Poin/Level</div></div>
+          </div>
+
+          <div className="sec-hd fu3"><div className="sec-hd-t">👥 Daftar Siswa</div><div className="sec-hd-line"/><span style={{fontSize:11,color:"var(--blue)",fontWeight:700,cursor:"pointer"}} onClick={()=>setShowAdd(true)}>+ Tambah</span></div>
+          <div className="stu-list fu4">
+            {students.map(s=>{
+              const si=getStatusInfo(snap[s.id]);
+              const lv=getLvl(s.poin);
+              const hist=histSnap[s.id]||[];
+              const lastTopic=hist[0];
+              return(
+                <div key={s.id} className={`stu-row ${si.color==="green"?"ab":si.color==="red"?"ib":""}`} onClick={()=>setSelStu(s)}>
+                  <div className="stu-av" style={{background:lv.tier.col+"22",color:lv.tier.col,border:`1.5px solid ${lv.tier.col}44`,fontSize:18}}>{lv.tier.icon}</div>
+                  <div className="stu-info">
+                    <div className="stu-name-row">
+                      {s.name}
+                      <span style={{fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:100,background:lv.tier.col+"22",color:lv.tier.col}}>{lv.tier.name} Lv.{lv.lvlNum}</span>
+                      <span className={`spill ${si.color}`}><StatusDot color={si.color}/>{si.label}</span>
+                    </div>
+                    <div className="stu-meta">
+                      {lastTopic?`Terakhir: ${lastTopic.topicName} (${timeAgo(lastTopic.timestamp)})`:"Belum ada riwayat"} · {hist.length} sesi
+                    </div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div className="stu-poin" style={{color:lv.tier.col}}>{s.poin}</div>
+                    <div style={{fontSize:10,color:"var(--tx3)"}}>poin</div>
+                  </div>
+                  <div style={{color:"var(--tx3)",width:16,height:16}}><IcoChevR/></div>
+                </div>
+              );
+            })}
+          </div>
+        </>}
+
+        {tab==="bank"&&<>
+          <div className="pg-title fu">Bank Materi</div>
+          <div className="pg-sub fu1">{BANK.length} topik · 4 jenjang · bebas pilih</div>
+          {JENJANG_META.map((jm,ji)=>(
+            <div key={jm.j} className={`jenjang-section fu${ji+1}`}>
+              <div className="jenjang-header" style={{background:jm.bg}}>
+                <div style={{width:28,height:28,borderRadius:8,background:jm.color,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontFamily:"'Syne',sans-serif",fontSize:13,fontWeight:800}}>J{jm.j}</div>
+                <div><div className="jenjang-num" style={{color:jm.color}}>Jenjang {jm.j}</div><div className="jenjang-name" style={{color:jm.color}}>{jm.label}</div></div>
+              </div>
+              <div className="topics-grid">
+                {BANK.filter(b=>b.jenjang===jm.j).map(t=>{
+                  const allHist=Object.values(histSnap).flat();
+                  const topicSessions=allHist.filter(h=>h.topicId===t.id);
+                  return(
+                    <div key={t.id} className="topic-card" style={{cursor:"default"}}>
+                      <div className="topic-accent" style={{background:t.color}}/>
+                      <span className="topic-icon-big">{t.icon}</span>
+                      <div className="topic-name">{t.nama}</div>
+                      <div className="topic-tag">{t.tag}</div>
+                      <span className="panduan-badge">{t.panduan}</span>
+                      {topicSessions.length>0&&<div style={{fontSize:10,color:"var(--tx3)",marginTop:5}}>{topicSessions.length} sesi</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </>}
+
+        {tab==="ranking"&&<>
+          <div className="pg-title fu">Leaderboard</div>
+          <div className="pg-sub fu1">Peringkat berdasarkan total poin</div>
+
+          {/* Tier legend */}
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}} className="fu2">
+            {TIERS.map(t=>(
+              <div key={t.name} style={{display:"flex",alignItems:"center",gap:5,background:t.bg,border:`1px solid ${t.col}33`,borderRadius:100,padding:"4px 10px",fontSize:11,fontWeight:700,color:t.col}}>
+                {t.icon} {t.name}
+              </div>
+            ))}
+          </div>
+
+          <div className="fu3">
+            {[...students].sort((a,b)=>b.poin-a.poin).map((s,i)=>{
+              const lv=getLvl(s.poin); const hist=histSnap[s.id]||[];
+              return(
+                <div key={s.id} className="lb-row" style={{borderLeft:`3px solid ${lv.tier.col}`}}>
+                  <div className="lb-rank" style={{color:i===0?"#F5A623":i===1?"#8A9ABB":i===2?"#A0620A":"var(--tx3)"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</div>
+                  <div style={{width:36,height:36,borderRadius:9,background:lv.tier.col+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{lv.tier.icon}</div>
+                  <div className="lb-info">
+                    <div className="lb-name">{s.name}</div>
+                    <div className="lb-sub" style={{color:lv.tier.col,fontWeight:700}}>{lv.tier.name} Lv.{lv.lvlNum} · {hist.length} sesi</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div className="lb-poin" style={{color:lv.tier.col}}>{s.poin}</div>
+                    <div style={{fontSize:10,color:"var(--tx3)"}}>poin</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>}
+      </div>
+
+      <button className="fab" onClick={()=>{setFormErr("");setForm({name:"",username:"",password:"",startLevel:lvSettings.startLevel});setShowAdd(true);}}><IcoPlus/></button>
+      <nav className="bot-nav">
+        {[{k:"dashboard",l:"Dashboard",ic:<IcoUsers/>},{k:"bank",l:"Bank Materi",ic:<IcoGrid/>},{k:"ranking",l:"Ranking",ic:<IcoChart/>}].map(n=>(
+          <button key={n.k} className={`bot-btn ${tab===n.k?"on":""}`} onClick={()=>setTab(n.k)}>{n.ic}{n.l}{tab===n.k&&<div className="nb-dot"/>}</button>
+        ))}
+      </nav>
+
+      {/* ── MODAL: Add Student ── */}
+      {showAdd&&<div className="modal-bg" onClick={e=>e.target===e.currentTarget&&setShowAdd(false)}>
+        <div className="modal-box sci">
+          <div className="modal-title">➕ Tambah Siswa Baru</div>
+          {formErr&&<div className="login-err">{formErr}</div>}
+          {[{f:"name",l:"Nama Lengkap",p:"contoh: Andi Pratama",t:"text"},{f:"username",l:"Username",p:"contoh: andi123",t:"text"},{f:"password",l:"Password",p:"kata sandi siswa",t:"password"}].map(({f,l,p,t})=>(
+            <div className="field" key={f}><label>{l}</label><input type={t} value={form[f]} onChange={e=>setForm(x=>({...x,[f]:e.target.value}))} placeholder={p}/></div>
+          ))}
+          <div className="field">
+            <label>Level Awal (1–31)</label>
+            <input type="number" min={1} max={31} value={form.startLevel} onChange={e=>setForm(x=>({...x,startLevel:e.target.value}))}/>
+            <div style={{marginTop:6,background:"var(--sky)",border:"1px solid var(--blue-m)",borderRadius:"var(--r)",padding:"8px 12px",fontSize:12}}>
+              {(() => {
+                const lvNum=Math.max(1,Math.min(31,Number(form.startLevel)||1));
+                const tier=getTier(lvNum);
+                return <span style={{fontWeight:700,color:tier.col}}>{tier.icon} {tier.name} Lv.{lvNum} — {tier.desc} · Mulai dengan {(lvNum-1)*lvSettings.poinPerLevel} poin</span>;
+              })()}
+            </div>
+          </div>
+          <div className="modal-acts">
+            <button className="m-cancel" onClick={()=>{setShowAdd(false);setFormErr("");}}>Batal</button>
+            <button className="m-ok" onClick={addStudent}>Tambah Siswa →</button>
+          </div>
+        </div>
+      </div>}
+
+      {/* ── MODAL: Level Settings ── */}
+      {showSettings&&<div className="modal-bg" onClick={e=>e.target===e.currentTarget&&setShowSettings(false)}>
+        <div className="modal-box sci">
+          <div className="modal-title">⚙️ Pengaturan Level</div>
+
+          {/* Tier reference */}
+          <div style={{background:"var(--off)",border:"1px solid var(--bdr)",borderRadius:"var(--r)",padding:"12px 14px",marginBottom:18}}>
+            <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:.6,marginBottom:10}}>Referensi Tier</div>
+            {TIERS.map(t=>(
+              <div key={t.name} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid var(--bdr)"}}>
+                <span style={{fontSize:13,fontWeight:700,color:t.col}}>{t.icon} {t.name}</span>
+                <span style={{fontSize:12,color:"var(--tx3)"}}>Level {t.range[0]}{t.range[0]===31?"":("–"+t.range[1])} · {t.desc}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="field">
+            <label>Poin yang Dibutuhkan per Level (10–1000)</label>
+            <input type="number" min={10} max={1000} value={settingsForm.poinPerLevel} onChange={e=>setSettingsForm(x=>({...x,poinPerLevel:e.target.value}))}/>
+            <div style={{fontSize:11,color:"var(--tx3)",marginTop:4}}>
+              Contoh: dengan {settingsForm.poinPerLevel} poin/level → Level 6 (Elite) butuh {5*settingsForm.poinPerLevel} poin · Level 11 (Master) butuh {10*settingsForm.poinPerLevel} poin
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Level Awal Default Siswa Baru (1–31)</label>
+            <input type="number" min={1} max={31} value={settingsForm.startLevel} onChange={e=>setSettingsForm(x=>({...x,startLevel:e.target.value}))}/>
+            <div style={{marginTop:6,fontSize:12,fontWeight:700,color:getTier(Math.max(1,Math.min(31,Number(settingsForm.startLevel)||1))).col}}>
+              {(() => {const t=getTier(Math.max(1,Math.min(31,Number(settingsForm.startLevel)||1)));return `${t.icon} ${t.name} — ${t.desc}`;})()}
+            </div>
+          </div>
+
+          <div className="modal-acts">
+            <button className="m-cancel" onClick={()=>setShowSettings(false)}>Batal</button>
+            <button className="m-ok" onClick={saveSettings}>Simpan Pengaturan</button>
+          </div>
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════════════════════════
+function Login({onLogin}){
+  const [tab,setTab]=useState("siswa");const [u,setU]=useState("");const [p,setP]=useState("");const [err,setErr]=useState("");
+  const go=()=>{setErr("");if(tab==="tutor"){if(u===TUTOR.username&&p===TUTOR.password)onLogin({role:"tutor"});else setErr("Username atau password salah");}else{const s=DEFAULT_STUDENTS.find(x=>x.username===u&&x.password===p);if(s)onLogin({role:"siswa",...s});else setErr("Username atau password salah");}};
+  return(
+    <div className="lw">
+      <div className="ll">
+        <div className="ll-circle" style={{width:300,height:300,top:-80,right:-80}}/><div className="ll-circle" style={{width:180,height:180,bottom:-50,left:-50}}/><div className="ll-circle" style={{width:90,height:90,top:"42%",left:"8%"}}/>
+        <div className="ll-content fu">
+          <div className="neo-big">NEO</div>
+          <div className="neo-sub-txt">Learning Platform</div>
+          <div className="lf-list">
+            {[{e:"🗂️",t:"Pilih materi bebas — 4 jenjang, 15 topik"},{e:"⚡",t:"Soal tak terbatas dengan generator otomatis"},{e:"🧠",t:"Pembahasan langkah-demi-langkah otomatis"},{e:"📋",t:"Tutor lihat riwayat topik per siswa"}].map((f,i)=>(
+              <div key={i} className="lf-item"><div className="lf-dot">{f.e}</div><span>{f.t}</span></div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="lr">
+        <div className="lform fu">
+          <div className="logo-row"><div className="logo-ico"><span style={{fontFamily:"'Syne',sans-serif",fontSize:15,fontWeight:800,color:"white",letterSpacing:-1}}>N</span></div><span className="logo-txt">NEO</span></div>
+          <div className="lhd">Selamat Datang</div>
+          <div className="lsub">Masuk ke platform pembelajaran NEO</div>
+          <div className="tab-row">
+            <button className={`tab-btn ${tab==="siswa"?"on":""}`} onClick={()=>{setTab("siswa");setErr("")}}>👦 Siswa</button>
+            <button className={`tab-btn ${tab==="tutor"?"on":""}`} onClick={()=>{setTab("tutor");setErr("")}}>👩‍🏫 Tutor</button>
+          </div>
+          {err&&<div className="login-err">⚠ {err}</div>}
+          <div className="field"><label>Username</label><input value={u} onChange={e=>setU(e.target.value)} placeholder={tab==="tutor"?"tutor":"username siswa"}/></div>
+          <div className="field"><label>Password</label><input type="password" value={p} onChange={e=>setP(e.target.value)} placeholder="••••••" onKeyDown={e=>e.key==="Enter"&&go()}/></div>
+          <button className="login-cta" onClick={go}>Masuk ke NEO →</button>
+          {tab==="siswa"&&<div className="login-note">Akun dibuat dan diatur oleh tutor kamu</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App(){
+  const [user,setUser]=useState(null);
+  return(<><style>{G}</style>{!user&&<Login onLogin={setUser}/>}{user?.role==="siswa"&&<StudentApp user={user} onLogout={()=>setUser(null)}/>}{user?.role==="tutor"&&<TutorApp onLogout={()=>setUser(null)}/>}</>);
+}
+
+    // Render the app
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+
+    // Hide loading screen after render
+    setTimeout(() => {
+      const loading = document.getElementById('loading');
+      if (loading) {
+        loading.style.opacity = '0';
+        setTimeout(() => loading.remove(), 500);
+      }
+    }, 800);
+  </script>
+</body>
+</html>
